@@ -1,22 +1,18 @@
 use std::any::Any;
 use std::cell::RefCell;
-use std::marker::PhantomPinned;
-use std::pin::Pin;
 use std::rc::Rc;
-
-pub struct Scope<'a> {
-    ctx: Pin<Box<Ctx<'a>>>,
-}
 
 /// Reactive context.
 #[derive(Default)]
 pub struct Ctx<'a> {
     effects: RefCell<Vec<Box<dyn FnMut() + 'a>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
+    child_ctx: RefCell<Vec<*mut Ctx<'a>>>,
     // Ctx owns the raw pointers in the Vec.
     signals: RefCell<Vec<*mut dyn Any>>,
-    _pinned: PhantomPinned,
 }
+
+pub type CtxRef<'a> = &'a Ctx<'a>;
 
 pub struct Signal<T: 'static> {
     value: RefCell<Rc<T>>,
@@ -26,20 +22,12 @@ trait AnySignal: Any {}
 
 impl<T> AnySignal for Signal<T> {}
 
-pub fn create_scope<'a, F>(f: F) -> Scope<'a>
-where
-    F: FnOnce(&'a Ctx<'a>),
-{
-    let ctx = Ctx::default();
-    let scope = Scope { ctx: Box::pin(ctx) };
-    // TODO: very unsafe
-    // SAFETY: not
-    f(unsafe { &*(scope.ctx.as_ref().get_ref() as *const Ctx<'a>) });
-    scope
+pub fn create_scope<'a>(scope: CtxRef<'a>, f: impl FnOnce(CtxRef<'a>)) {
+    f(scope)
 }
 
 impl<'a> Ctx<'a> {
-    pub fn create_signal<T>(&self, value: T) -> &Signal<T> {
+    pub fn create_signal<T>(&self, value: T) -> &'a Signal<T> {
         let signal = Signal {
             value: RefCell::new(Rc::new(value)),
         };
@@ -49,7 +37,6 @@ impl<'a> Ctx<'a> {
         // SAFETY: the address of the Signal<T> lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
         // - self.signals is append only. That means that the Box<Signal<T>> will not be dropped until Self is dropped.
-        // TODO: this is a violation of StackedBorrows when dropped.
         unsafe { &*ptr }
     }
 
@@ -64,21 +51,34 @@ impl<'a> Ctx<'a> {
 
     pub fn create_child_scope<F>(&self, f: F)
     where
-        F: FnOnce(&Ctx),
+        F: FnOnce(CtxRef<'a>),
     {
         let ctx = Ctx::default();
-        f(&ctx);
+        let boxed = Box::new(ctx);
+        let ptr = Box::into_raw(boxed);
+        self.child_ctx.borrow_mut().push(ptr);
+        // SAFETY: the address of the Ctx lives as long as 'a because:
+        // - It is allocated on the heap and therefore has a stable address.
+        // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until Self is dropped.
+        f(unsafe { &*ptr });
     }
 }
 
 impl Drop for Ctx<'_> {
     fn drop(&mut self) {
+        // Drop effects.
+        drop(self.effects.take());
+        // Drop child contexts.
+        for i in self.child_ctx.take() {
+            // SAFETY: These pointers were allocated in Self::create_child_scope.
+            unsafe {
+                drop(Box::from_raw(i));
+            }
+        }
         // Call cleanup functions.
         for cb in self.cleanups.take() {
             cb();
         }
-        // Drop effects.
-        drop(self.effects.take());
         // Drop signals.
         for i in self.signals.take() {
             // SAFETY: These pointers were allocated in Self::create_signal.
