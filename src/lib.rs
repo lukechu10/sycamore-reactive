@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 use std::rc::Rc;
@@ -27,6 +26,7 @@ pub fn create_scope<'a>(_scope: &Ctx<'_>, f: impl FnOnce(CtxRef<'_>)) {
     let ctx = ManuallyDrop::new(Ctx::default());
     f(&ctx);
     ctx.dispose();
+    // No need to drop ctx because dispose does the same thing without requiring &mut.
 }
 
 impl<'a> Ctx<'a> {
@@ -92,26 +92,7 @@ impl<'a> Ctx<'a> {
 
 impl Drop for Ctx<'_> {
     fn drop(&mut self) {
-        // Drop effects.
-        drop(self.effects.take());
-        // Drop child contexts.
-        for i in self.child_ctx.take() {
-            // SAFETY: These pointers were allocated in Self::create_child_scope.
-            unsafe {
-                drop(Box::from_raw(i));
-            }
-        }
-        // Call cleanup functions.
-        for cb in self.cleanups.take() {
-            cb();
-        }
-        // Drop signals.
-        for i in self.signals.take() {
-            // SAFETY: These pointers were allocated in Self::create_signal.
-            unsafe {
-                drop(Box::from_raw(i));
-            }
-        }
+        self.dispose();
     }
 }
 
