@@ -2,10 +2,14 @@ use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 use std::rc::Rc;
 
+mod effect;
+
+pub use effect::*;
+
 /// Reactive context.
 #[derive(Default)]
 pub struct Ctx<'a> {
-    effects: RefCell<Vec<Box<dyn FnMut() + 'a>>>,
+    effects: RefCell<Vec<EffectState<'a>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
     child_ctx: RefCell<Vec<*mut Ctx<'a>>>,
     // Ctx owns the raw pointers in the Vec.
@@ -41,11 +45,6 @@ impl<'a> Ctx<'a> {
         // - It is allocated on the heap and therefore has a stable address.
         // - self.signals is append only. That means that the Box<Signal<T>> will not be dropped until Self is dropped.
         unsafe { &*ptr }
-    }
-
-    pub fn create_effect(&self, mut f: impl FnMut() + 'a) {
-        f(); // TODO
-        self.effects.borrow_mut().push(Box::new(f));
     }
 
     pub fn on_cleanup(&self, f: impl FnOnce() + 'a) {
