@@ -10,16 +10,16 @@ pub struct Ctx<'a> {
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
     child_ctx: RefCell<Vec<*mut Ctx<'a>>>,
     // Ctx owns the raw pointers in the Vec.
-    signals: RefCell<Vec<*mut dyn Any>>,
+    signals: RefCell<Vec<*mut (dyn AnySignal + 'a)>>,
 }
 
 pub type CtxRef<'a> = &'a Ctx<'a>;
 
-pub struct Signal<T: 'static> {
+pub struct Signal<T> {
     value: RefCell<Rc<T>>,
 }
 
-trait AnySignal: Any {}
+trait AnySignal {}
 
 impl<T> AnySignal for Signal<T> {}
 
