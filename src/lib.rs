@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::cell::RefCell;
+use std::mem::ManuallyDrop;
 use std::rc::Rc;
 
 /// Reactive context.
@@ -22,12 +23,14 @@ trait AnySignal: Any {}
 
 impl<T> AnySignal for Signal<T> {}
 
-pub fn create_scope<'a>(scope: CtxRef<'a>, f: impl FnOnce(CtxRef<'a>)) {
-    f(scope)
+pub fn create_scope<'a>(_scope: &Ctx<'_>, f: impl FnOnce(CtxRef<'_>)) {
+    let ctx = ManuallyDrop::new(Ctx::default());
+    f(&ctx);
+    ctx.dispose();
 }
 
 impl<'a> Ctx<'a> {
-    pub fn create_signal<T>(&self, value: T) -> &'a Signal<T> {
+    pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<T> {
         let signal = Signal {
             value: RefCell::new(Rc::new(value)),
         };
@@ -61,6 +64,29 @@ impl<'a> Ctx<'a> {
         // - It is allocated on the heap and therefore has a stable address.
         // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until Self is dropped.
         f(unsafe { &*ptr });
+    }
+
+    pub fn dispose(&self) {
+        // Drop effects.
+        drop(self.effects.take());
+        // Drop child contexts.
+        for i in self.child_ctx.take() {
+            // SAFETY: These pointers were allocated in Self::create_child_scope.
+            unsafe {
+                drop(Box::from_raw(i));
+            }
+        }
+        // Call cleanup functions.
+        for cb in self.cleanups.take() {
+            cb();
+        }
+        // Drop signals.
+        for i in self.signals.take() {
+            // SAFETY: These pointers were allocated in Self::create_signal.
+            unsafe {
+                drop(Box::from_raw(i));
+            }
+        }
     }
 }
 
