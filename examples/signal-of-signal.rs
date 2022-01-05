@@ -3,8 +3,6 @@ use sycamore_reactive::*;
 fn main() {
     let ctx = Ctx::default();
 
-    // let a = String::new();
-
     create_scope(&ctx, |ctx| {
         let data = ctx.create_signal(123);
         dbg!(data.get());
