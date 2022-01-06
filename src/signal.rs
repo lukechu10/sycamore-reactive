@@ -21,7 +21,7 @@ impl<'a> SignalEmitter<'a> {
     }
 
     /// Track the current signal in the effect scope.
-    pub(crate) fn track(&self) {
+    pub fn track(&self) {
         EFFECTS.with(|effects| {
             if let Some(last) = effects.borrow().last() {
                 // SAFETY: See guarantee on EffectState within EFFECTS.
@@ -30,6 +30,22 @@ impl<'a> SignalEmitter<'a> {
                 last.add_dependency(unsafe { std::mem::transmute(self) });
             }
         });
+    }
+
+    pub fn trigger_subscribers(&self) {
+        // Clone subscribers to prevent modifying list when calling callbacks.
+        let subscribers = self.0.borrow().clone();
+        // Reverse order of subscribers to trigger outer effects before inner effects.
+        for subscriber in subscribers.values().rev() {
+            // subscriber might have already been destroyed in the case of nested effects
+            if let Some(callback) = subscriber.upgrade() {
+                // Might already be inside a callback, if infinite loop.
+                // Do nothing if infinite loop.
+                if let Ok(mut callback) = callback.try_borrow_mut() {
+                    callback()
+                }
+            }
+        }
     }
 }
 
@@ -53,6 +69,7 @@ impl<'a, T> Signal<'a, T> {
 
     pub fn set(&self, value: T) {
         *self.value.borrow_mut() = Rc::new(value);
+        self.emitter.trigger_subscribers();
     }
 }
 

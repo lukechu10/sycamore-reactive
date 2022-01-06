@@ -12,7 +12,7 @@ use signal::{AnySignal, Signal};
 /// Reactive context.
 #[derive(Default)]
 pub struct Ctx<'a> {
-    effects: RefCell<Vec<EffectState<'a>>>,
+    effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
     child_ctx: RefCell<Vec<*mut Ctx<'a>>>,
     // Ctx owns the raw pointers in the Vec.

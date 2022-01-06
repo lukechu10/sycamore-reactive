@@ -51,25 +51,82 @@ impl<'a> EffectState<'a> {
 impl<'a> Ctx<'a> {
     pub fn create_effect(&self, f: impl FnMut() + 'a) {
         let f = Rc::new(RefCell::new(f));
-        let effect: EffectState<'a> = EffectState {
-            cb: f.clone(),
+
+        let effect = Rc::new(RefCell::new(None::<EffectState<'a>>));
+        let cb = Rc::new(RefCell::new({
+            let effect = Rc::downgrade(&effect);
+            move || {
+                EFFECTS.with(|effects| {
+                    // Record initial effect stack length to verify that it is the same after.
+                    let initial_effect_stack_len = effects.borrow().len();
+                    // Upgrade the effect to an Rc now so that it is valid for the rest of the callback.
+                    let effect_ref = effect.upgrade().unwrap();
+
+                    // Take effect out.
+                    let mut effect = effect_ref.take().unwrap();
+                    effect.clear_dependencies();
+
+                    // Push the effect onto the effect stack.
+                    let boxed = Box::new(effect);
+                    let ptr: *mut EffectState<'a> = Box::into_raw(boxed);
+                    // Push the effect onto the effect stack so that it is visible by signals.
+                    effects
+                        .borrow_mut()
+                        .push(ptr as *mut () as *mut EffectState<'static>);
+                    // Now we can call the user-provided function.
+                    f.borrow_mut()();
+                    // Pop the effect from the effect stack.
+                    effects.borrow_mut().pop().unwrap();
+
+                    //  SAFETY: Now that the effect has been popped from EFFECTS,
+                    // get a boxed EffectState with the correct lifetime back.
+                    let boxed = unsafe { Box::from_raw(ptr) };
+
+                    // For all the signals collected by the EffectState,
+                    // we need to add backlinks from the signal to the effect, so that
+                    // updating the signal will trigger the effect.
+                    for emitter in &boxed.dependencies {
+                        emitter.0.subscribe(Rc::downgrade(&boxed.cb));
+                    }
+
+                    // Get the effect state back into the Rc
+                    *effect_ref.borrow_mut() = Some(*boxed);
+
+                    debug_assert_eq!(effects.borrow().len(), initial_effect_stack_len);
+                });
+            }
+        }));
+
+        // Initialize initial effect state.
+        *effect.borrow_mut() = Some(EffectState {
+            cb: cb.clone(),
             dependencies: HashSet::new(),
-        };
-        let boxed = Box::new(effect);
-        let ptr: *mut EffectState<'a> = Box::into_raw(boxed);
-        EFFECTS.with(move |effects| {
-            // Push the effect onto the effect stack so that it is visible by signals.
-            effects
-                .borrow_mut()
-                .push(ptr as *mut () as *mut EffectState<'static>);
-            // Now we can call the user-provided function.
-            f.borrow_mut()();
-            // Pop the effect from the effect stack.
-            effects.borrow_mut().pop().unwrap();
         });
-        //  SAFETY: Now that the effect has been popped from EFFECTS,
-        // get a boxed EffectState with the correct lifetime back.
-        let boxed = unsafe { Box::from_raw(ptr) };
-        self.effects.borrow_mut().push(*boxed);
+
+        // Initial callback call to get everything started.
+        cb.borrow_mut()();
+
+        self.effects.borrow_mut().push(effect);
+
+        // let effect: EffectState<'a> = EffectState {
+        //     cb,
+        //     dependencies: HashSet::new(),
+        // };
+        // let boxed = Box::new(effect);
+        // let ptr: *mut EffectState<'a> = Box::into_raw(boxed);
+        // EFFECTS.with(move |effects| {
+        //     // Push the effect onto the effect stack so that it is visible by signals.
+        //     effects
+        //         .borrow_mut()
+        //         .push(ptr as *mut () as *mut EffectState<'static>);
+        //     // Now we can call the user-provided function.
+        //     f.borrow_mut()();
+        //     // Pop the effect from the effect stack.
+        //     effects.borrow_mut().pop().unwrap();
+        // });
+        // //  SAFETY: Now that the effect has been popped from EFFECTS,
+        // // get a boxed EffectState with the correct lifetime back.
+        // let boxed = unsafe { Box::from_raw(ptr) };
+        // self.effects.borrow_mut().push(*boxed);
     }
 }

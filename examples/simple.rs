@@ -2,25 +2,12 @@ use sycamore_reactive::*;
 
 fn main() {
     let disposer = create_scope(|ctx| {
-        let data = ctx.create_signal(123);
-        ctx.create_effect(|| {
-            println!("Hello World!");
-            dbg!(data.get());
-        });
-
-        ctx.on_cleanup(|| {
-            println!("Outer scope cleanup");
-        });
-
-        ctx.create_child_scope(|ctx| {
-            let inner = ctx.create_signal("abc");
-            ctx.on_cleanup(|| {
-                println!("Start inner scope cleanup");
-                dbg!(inner.get());
-                dbg!(data.get());
-                println!("Finish inner scope cleanup");
-            })
-        });
+        let data = ctx.create_signal(0);
+        ctx.create_effect(|| println!("data value changed. new value = {}", data.get()));
+        data.set(1);
+        data.set(2);
+        data.set(3);
+        data.set(4);
     });
     disposer();
 }
