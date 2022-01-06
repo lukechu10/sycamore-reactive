@@ -1,9 +1,7 @@
 use sycamore_reactive::*;
 
 fn main() {
-    let ctx = Ctx::default();
-
-    create_scope(&ctx, |ctx| {
+    let disposer = create_scope(|ctx| {
         let data = ctx.create_signal(123);
         ctx.create_effect(|| {
             println!("Hello World!");
@@ -24,4 +22,5 @@ fn main() {
             })
         });
     });
+    disposer();
 }

@@ -1,10 +1,13 @@
+pub mod effect;
+pub mod signal;
+
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
-mod effect;
-
-pub use effect::*;
+use effect::EffectState;
+use indexmap::IndexMap;
+use signal::{AnySignal, Signal};
 
 /// Reactive context.
 #[derive(Default)]
@@ -13,31 +16,40 @@ pub struct Ctx<'a> {
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
     child_ctx: RefCell<Vec<*mut Ctx<'a>>>,
     // Ctx owns the raw pointers in the Vec.
-    signals: RefCell<Vec<*mut (dyn AnySignal + 'a)>>,
+    signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
 }
 
 pub type CtxRef<'a> = &'a Ctx<'a>;
 
-pub struct Signal<T> {
-    value: RefCell<Rc<T>>,
-}
-
-trait AnySignal {}
-
-impl<T> AnySignal for Signal<T> {}
-
-pub fn create_scope<'a>(_scope: &Ctx<'_>, f: impl FnOnce(CtxRef<'_>)) {
+/// Create a reactive scope.
+///
+/// # Examples
+///
+/// ```
+/// use sycamore_reactive::create_scope;
+///
+/// let disposer = create_scope(|ctx| {
+///     // Use ctx here.
+/// });
+/// disposer();
+/// ```
+#[must_use = "not calling the disposer function will result in a memory leak"]
+pub fn create_scope(f: impl FnOnce(CtxRef<'_>)) -> impl FnOnce() + 'static {
     let ctx = ManuallyDrop::new(Ctx::default());
-    f(&ctx);
-    ctx.dispose();
-    // No need to drop ctx because dispose does the same thing without requiring &mut.
+    let boxed = Box::new(ctx);
+    let ptr = Box::into_raw(boxed);
+    // SAFETY: Safe because heap allocated value has stable address.
+    f(unsafe { &*ptr });
+    move || unsafe {
+        // SAFETY: Safe because ptr created using Box::into_raw.
+        let boxed = Box::from_raw(ptr);
+        boxed.dispose();
+    }
 }
 
 impl<'a> Ctx<'a> {
-    pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<T> {
-        let signal = Signal {
-            value: RefCell::new(Rc::new(value)),
-        };
+    pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'a, T> {
+        let signal = Signal::new(value);
         let boxed = Box::new(signal);
         let ptr = Box::into_raw(boxed);
         self.signals.borrow_mut().push(ptr);
@@ -92,15 +104,5 @@ impl<'a> Ctx<'a> {
 impl Drop for Ctx<'_> {
     fn drop(&mut self) {
         self.dispose();
-    }
-}
-
-impl<T> Signal<T> {
-    pub fn get(&self) -> Rc<T> {
-        self.value.borrow().clone()
-    }
-
-    pub fn set(&self, value: T) {
-        *self.value.borrow_mut() = Rc::new(value);
     }
 }
