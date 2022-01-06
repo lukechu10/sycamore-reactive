@@ -62,8 +62,32 @@ impl<'a, T> Signal<'a, T> {
         }
     }
 
+    // Get the current value of the state. When called inside a reactive scope, calling this will
+    /// add itself to the scope's dependencies.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use sycamore_reactive::*;
+    /// # let disposer = create_scope(|ctx| {
+    /// let state = ctx.create_signal(0);
+    /// assert_eq!(*state.get(), 0);
+    ///
+    /// state.set(1);
+    /// assert_eq!(*state.get(), 1);
+    /// # });
+    /// # disposer();
+    /// ```
     pub fn get(&self) -> Rc<T> {
         self.emitter.track();
+        self.value.borrow().clone()
+    }
+
+    /// Get the current value of the state, without tracking this as a dependency if inside a
+    /// reactive context.
+    ///
+    /// # Example
+    /// TODO
+    pub fn get_untracked(&self) -> Rc<T> {
         self.value.borrow().clone()
     }
 

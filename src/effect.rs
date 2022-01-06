@@ -106,27 +106,7 @@ impl<'a> Ctx<'a> {
         // Initial callback call to get everything started.
         cb.borrow_mut()();
 
+        // Push Rc to self.effects so that it is not dropped immediately.
         self.effects.borrow_mut().push(effect);
-
-        // let effect: EffectState<'a> = EffectState {
-        //     cb,
-        //     dependencies: HashSet::new(),
-        // };
-        // let boxed = Box::new(effect);
-        // let ptr: *mut EffectState<'a> = Box::into_raw(boxed);
-        // EFFECTS.with(move |effects| {
-        //     // Push the effect onto the effect stack so that it is visible by signals.
-        //     effects
-        //         .borrow_mut()
-        //         .push(ptr as *mut () as *mut EffectState<'static>);
-        //     // Now we can call the user-provided function.
-        //     f.borrow_mut()();
-        //     // Pop the effect from the effect stack.
-        //     effects.borrow_mut().pop().unwrap();
-        // });
-        // //  SAFETY: Now that the effect has been popped from EFFECTS,
-        // // get a boxed EffectState with the correct lifetime back.
-        // let boxed = unsafe { Box::from_raw(ptr) };
-        // self.effects.borrow_mut().push(*boxed);
     }
 }
