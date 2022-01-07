@@ -50,6 +50,21 @@ impl<'a> EffectState<'a> {
 }
 
 impl<'a> Scope<'a> {
+    /// Creates an effect on signals used inside the effect closure.
+    ///
+    /// # Example
+    /// ```
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// let state = ctx.create_signal(0);
+    ///
+    /// ctx.create_effect(move || {
+    ///     println!("State changed. New state value = {}", state.get());
+    /// }); // Prints "State changed. New state value = 0"
+    ///
+    /// state.set(1); // Prints "State changed. New state value = 1"
+    /// # });
+    /// ```
     pub fn create_effect(&self, f: impl FnMut() + 'a) {
         let f = Rc::new(RefCell::new(f));
 
@@ -118,7 +133,7 @@ impl<'a> Scope<'a> {
                 disposer();
             }
             // Create a new nested scope and save the disposer.
-            
+
             // This is a bug with clippy because f cannot be moved out of the closure.
             #[allow(clippy::redundant_closure)]
             let new_disposer: Option<Box<dyn FnOnce()>> =
