@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use crate::signal::SignalEmitter;
 use crate::*;
 
 thread_local! {
@@ -108,5 +107,46 @@ impl<'a> Ctx<'a> {
 
         // Push Rc to self.effects so that it is not dropped immediately.
         self.effects.borrow_mut().push(effect);
+    }
+}
+
+/// Run the passed closure inside an untracked dependency scope.
+///
+/// See also [`ReadSignal::get_untracked()`].
+/// 
+/// # Example
+///
+/// ```
+/// # use sycamore_reactive::*;
+/// # let disposer = create_scope(|ctx| {
+/// let state = ctx.create_signal(1);
+/// let double = ctx.create_memo(|| untrack(|| *state.get() * 2));
+/// //                              ^^^^^^^
+/// assert_eq!(*double.get(), 2);
+///
+/// state.set(2);
+/// // double value should still be old value because state was untracked
+/// assert_eq!(*double.get(), 2);
+/// # });
+/// # disposer();
+///
+/// ```
+pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
+    let f = Rc::new(RefCell::new(Some(f)));
+    let g = Rc::clone(&f);
+
+    // Do not panic if running inside destructor.
+    if let Ok(ret) = EFFECTS.try_with(|effects| {
+        let tmp = effects.take();
+
+        let ret = f.take().unwrap()();
+
+        *effects.borrow_mut() = tmp;
+
+        ret
+    }) {
+        ret
+    } else {
+        g.take().unwrap()()
     }
 }

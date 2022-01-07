@@ -6,9 +6,10 @@ use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 
-use effect::*;
-use indexmap::IndexMap;
-use signal::*;
+pub use indexmap::IndexMap;
+
+pub use effect::*;
+pub use signal::*;
 
 /// Reactive context.
 #[derive(Default)]
