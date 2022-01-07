@@ -129,7 +129,6 @@ impl<'a> Ctx<'a> {
 /// assert_eq!(*double.get(), 2);
 /// # });
 /// # disposer();
-///
 /// ```
 pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
     let f = Rc::new(RefCell::new(Some(f)));

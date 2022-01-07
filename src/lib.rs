@@ -29,7 +29,7 @@ pub type CtxRef<'a> = &'a Ctx<'a>;
 ///
 /// Returns a disposer function which will release the memory owned by the [`Ctx`].
 /// Failure to call the disposer function will result in a memory leak.
-/// 
+///
 /// # Examples
 ///
 /// ```

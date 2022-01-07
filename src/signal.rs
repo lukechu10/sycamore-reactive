@@ -85,13 +85,26 @@ impl<'a, T> ReadSignal<'a, T> {
     /// reactive context.
     ///
     /// # Example
-    /// TODO
+    ///
+    /// ```
+    /// # use sycamore_reactive::*;
+    /// # let disposer = create_scope(|ctx| {
+    /// let state = ctx.create_signal(1);
+    /// let double = ctx.create_memo(|| *state.get_untracked() * 2);
+    /// assert_eq!(*double.get(), 2);
+    ///
+    /// state.set(2);
+    /// // double value should still be old value because state was untracked
+    /// assert_eq!(*double.get(), 2);
+    /// # });
+    /// # disposer();
+    /// ```
     pub fn get_untracked(&self) -> Rc<T> {
         self.value.borrow().clone()
     }
 
     /// Creates a mapped [`ReadSignal`]. This is equivalent to using [`create_memo`].
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// # use sycamore_reactive::*;
@@ -99,7 +112,7 @@ impl<'a, T> ReadSignal<'a, T> {
     /// let state = ctx.create_signal(1);
     /// let double = state.map(&ctx, |&x| x * 2);
     /// assert_eq!(*double.get(), 2);
-    /// 
+    ///
     /// state.set(2);
     /// assert_eq!(*double.get(), 4);
     /// # });
