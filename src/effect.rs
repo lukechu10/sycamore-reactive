@@ -110,6 +110,24 @@ impl<'a> Scope<'a> {
         // Push Rc to self.effects so that it is not dropped immediately.
         self.effects.borrow_mut().push(effect);
     }
+
+    pub fn create_effect_scoped(&'a self, mut f: impl FnMut(ScopeRef<'_>) + 'a) {
+        let mut disposer: Option<Box<dyn FnOnce()>> = None;
+        self.create_effect(move || {
+            if let Some(disposer) = disposer.take() {
+                disposer();
+            }
+            // Create a new nested scope and save the disposer.
+            
+            // This is a bug with clippy because f cannot be moved out of the closure.
+            #[allow(clippy::redundant_closure)]
+            let new_disposer: Option<Box<dyn FnOnce()>> =
+                Some(Box::new(self.create_child_scope(|ctx| f(ctx))));
+            // SAFETY: transmute the lifetime. This is safe because disposer is only used within the effect which is
+            // necessarily within the lifetime of self (the Scope).
+            disposer = unsafe { std::mem::transmute(new_disposer) };
+        });
+    }
 }
 
 /// Run the passed closure inside an untracked dependency scope.

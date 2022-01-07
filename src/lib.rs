@@ -12,6 +12,7 @@ use indexmap::IndexMap;
 
 pub use effect::*;
 pub use signal::*;
+use slotmap::{DefaultKey, SlotMap};
 
 /// A reactive scope.
 ///
@@ -24,10 +25,10 @@ pub use signal::*;
 pub struct Scope<'a> {
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
-    child_ctx: RefCell<Vec<*mut Scope<'a>>>,
+    child_ctx: RefCell<SlotMap<DefaultKey, *mut Scope<'a>>>,
     // Ctx owns the raw pointers in the Vec.
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
-    parent: Option<&'a Self>,
+    parent: Option<*const Self>,
 }
 
 impl<'a> Scope<'a> {
@@ -102,19 +103,29 @@ impl<'a> Scope<'a> {
     }
 
     /// Create a child scope.
-    pub fn create_child_scope(&'a self, f: impl FnOnce(ScopeRef<'_>)) -> impl FnOnce() + 'a {
-        let mut ctx = Scope::new();
-        ctx.parent = Some(self);
+    pub fn create_child_scope<'b, F>(&'a self, f: F) -> impl FnOnce() + 'a
+    where
+        'a: 'b,
+        F: FnOnce(ScopeRef<'b>),
+    {
+        let mut ctx: Scope<'b> = Scope::new();
+        // SAFETY: TODO
+        ctx.parent = Some(unsafe { std::mem::transmute(self as *const _) });
         let boxed = Box::new(ctx);
         let ptr = Box::into_raw(boxed);
-        self.child_ctx.borrow_mut().push(ptr);
+        let key = self
+            .child_ctx
+            .borrow_mut()
+            // SAFETY: TODO
+            .insert(unsafe { std::mem::transmute(ptr) });
         // SAFETY: the address of the Ctx lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
         // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until Self is dropped.
         f(unsafe { &*ptr });
         move || {
+            let ctx = self.child_ctx.borrow_mut().remove(key).unwrap();
             // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer than 'a.
-            let ctx = unsafe { &*ptr };
+            let ctx = unsafe { Box::from_raw(ctx) };
             ctx.dispose();
         }
     }
@@ -128,7 +139,7 @@ impl<'a> Scope<'a> {
         // Drop effects.
         drop(self.effects.take());
         // Drop child contexts.
-        for i in self.child_ctx.take() {
+        for &i in self.child_ctx.take().values() {
             // SAFETY: These pointers were allocated in Self::create_child_scope.
             let ctx = unsafe { Box::from_raw(i) };
             // Dispose of ctx if it has not already been disposed.

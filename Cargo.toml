@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 indexmap = "1.7.0"
+slotmap = "1.0.6"
