@@ -155,6 +155,22 @@ impl<'a, T> Signal<'a, T> {
     }
 }
 
+impl<'a, T: Default> Signal<'a, T> {
+    /// Take the current value out and replace it with the default value.
+    ///
+    /// This will notify and update any effects and memos that depend on this value.
+    pub fn take(&self) -> Rc<T> {
+        let ret = self.0.value.take();
+        self.0.emitter.trigger_subscribers();
+        ret
+    }
+
+    /// Take the current value out and replace it with the default value.
+    pub fn take_untracked(&self) -> Rc<T> {
+        self.0.value.take()
+    }
+}
+
 impl<'a, T> Deref for Signal<'a, T> {
     type Target = ReadSignal<'a, T>;
 
@@ -201,16 +217,16 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
 /// trait and therefore needs to be manually cloned into all closures where it is used.
 ///
 /// In general, [`Scope::create_signal`] should be preferred, both for performance and ergonomics.
-/// 
+///
 /// # Usage
-/// 
+///
 /// To create a [`RcSignal`], use the [`create_rc_signal`] function.
 ///
 /// # Example
 /// ```
 /// # use sycamore_reactive::*;
 /// let mut outer = None;
-/// 
+///
 /// create_scope_immediate(|ctx| {
 /// // Even though the RcSignal is created inside a reactive scope, it can escape out of it.
 /// let rc_state = create_rc_signal(0);
@@ -220,7 +236,7 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
 ///
 /// rc_state.set(1);
 /// assert_eq!(*double.get(), 2);
-/// 
+///
 /// // This isn't possible with simply ctx.create_signal()
 /// outer = Some(rc_state);
 /// });
@@ -237,7 +253,7 @@ impl<T> Deref for RcSignal<T> {
 }
 
 /// Create a new [`RcSignal`] with the specified initial value.
-/// 
+///
 /// For more details, check the documentation for [`RcSignal`].
 pub fn create_rc_signal<T>(value: T) -> RcSignal<T> {
     RcSignal(Rc::new(Signal::new(value)))

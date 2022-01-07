@@ -102,7 +102,7 @@ impl<'a> Scope<'a> {
     }
 
     /// Create a child scope.
-    pub fn create_child_scope(&'a self, f: impl FnOnce(ScopeRef<'a>)) -> impl FnOnce() + 'a {
+    pub fn create_child_scope(&'a self, f: impl FnOnce(ScopeRef<'_>)) -> impl FnOnce() + 'a {
         let mut ctx = Scope::new();
         ctx.parent = Some(self);
         let boxed = Box::new(ctx);
