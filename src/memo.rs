@@ -1,3 +1,5 @@
+//! Derived and computed data.
+
 use std::cell::Cell;
 
 use crate::*;

@@ -1,3 +1,5 @@
+//! Signals - The building blocks of reactivity.
+
 use std::ops::Deref;
 
 use crate::effect::EFFECTS;
