@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 
-pub use indexmap::IndexMap;
+use indexmap::IndexMap;
 
 pub use effect::*;
 pub use signal::*;

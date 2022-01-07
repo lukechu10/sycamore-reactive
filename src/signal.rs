@@ -199,6 +199,10 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
 /// trait and therefore needs to be manually cloned into all closures where it is used.
 ///
 /// In general, [`Scope::create_signal`] should be preferred, both for performance and ergonomics.
+/// 
+/// # Usage
+/// 
+/// To create a [`RcSignal`], use the [`create_rc_signal`] function.
 ///
 /// # Example
 /// ```
@@ -230,6 +234,9 @@ impl<T> Deref for RcSignal<T> {
     }
 }
 
+/// Create a new [`RcSignal`] with the specified initial value.
+/// 
+/// For more details, check the documentation for [`RcSignal`].
 pub fn create_rc_signal<T>(value: T) -> RcSignal<T> {
     RcSignal(Rc::new(Signal::new(value)))
 }
@@ -278,6 +285,7 @@ mod tests {
 
     #[test]
     fn rc_signal() {
+        let mut outer = None;
         create_scope_immediate(|ctx| {
             let rc_state = create_rc_signal(0);
             let rc_state_cloned = rc_state.clone();
@@ -286,6 +294,9 @@ mod tests {
 
             rc_state.set(1);
             assert_eq!(*double.get(), 2);
+
+            outer = Some(rc_state);
         });
+        assert_eq!(*outer.unwrap().get(), 1);
     }
 }
