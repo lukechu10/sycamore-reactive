@@ -50,7 +50,15 @@ impl<'a> Ctx<'a> {
         self.create_selector_with(f, PartialEq::eq)
     }
 
-    /// TODO
+    /// Creates a memoized value from some signals. Also know as "derived stores".
+    /// Unlike [`create_memo`](Self::create_memo), this function will not notify dependents of a change if the output is
+    /// the same.
+    ///
+    /// It takes a comparison function to compare the old and new value, which returns `true` if they
+    /// are the same and `false` otherwise.
+    ///
+    /// To use the type's [`PartialEq`] implementation instead of a custom function, use
+    /// [`create_selector`](Self::create_selector).
     pub fn create_selector_with<U: 'a>(
         &'a self,
         mut f: impl FnMut() -> U + 'a,
