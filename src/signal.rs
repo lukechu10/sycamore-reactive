@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::effect::EFFECTS;
 use crate::*;
 
@@ -49,19 +51,13 @@ impl<'a> SignalEmitter<'a> {
     }
 }
 
-pub struct Signal<'a, T> {
+/// A read-only [`Signal`].
+pub struct ReadSignal<'a, T> {
     value: RefCell<Rc<T>>,
     emitter: SignalEmitter<'a>,
 }
 
-impl<'a, T> Signal<'a, T> {
-    pub(crate) fn new(value: T) -> Self {
-        Self {
-            value: RefCell::new(Rc::new(value)),
-            emitter: Default::default(),
-        }
-    }
-
+impl<'a, T> ReadSignal<'a, T> {
     // Get the current value of the state. When called inside a reactive scope, calling this will
     /// add itself to the scope's dependencies.
     ///
@@ -90,10 +86,29 @@ impl<'a, T> Signal<'a, T> {
     pub fn get_untracked(&self) -> Rc<T> {
         self.value.borrow().clone()
     }
+}
+
+pub struct Signal<'a, T>(ReadSignal<'a, T>);
+
+impl<'a, T> Signal<'a, T> {
+    pub(crate) fn new(value: T) -> Self {
+        Self(ReadSignal {
+            value: RefCell::new(Rc::new(value)),
+            emitter: Default::default(),
+        })
+    }
 
     pub fn set(&self, value: T) {
-        *self.value.borrow_mut() = Rc::new(value);
-        self.emitter.trigger_subscribers();
+        *self.0.value.borrow_mut() = Rc::new(value);
+        self.0.emitter.trigger_subscribers();
+    }
+}
+
+impl<'a, T> Deref for Signal<'a, T> {
+    type Target = ReadSignal<'a, T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -103,6 +118,16 @@ pub(crate) trait AnySignal<'a> {
 }
 
 impl<'a, T> AnySignal<'a> for Signal<'a, T> {
+    fn subscribe(&self, cb: WeakEffectCallback<'a>) {
+        self.emitter.subscribe(cb);
+    }
+
+    fn unsubscribe(&self, cb: EffectCallbackPtr<'a>) {
+        self.emitter.unsubscribe(cb);
+    }
+}
+
+impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
     fn subscribe(&self, cb: WeakEffectCallback<'a>) {
         self.emitter.subscribe(cb);
     }
