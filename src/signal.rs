@@ -101,7 +101,7 @@ impl<'a, T> ReadSignal<'a, T> {
         self.value.borrow().clone()
     }
 
-    /// Creates a mapped [`ReadSignal`]. This is equivalent to using [`create_memo`](Ctx::create_memo).
+    /// Creates a mapped [`ReadSignal`]. This is equivalent to using [`create_memo`](Scope::create_memo).
     ///
     /// # Example
     /// ```rust
@@ -188,7 +188,7 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
     }
 }
 
-/// A signal that is not bound to a [`Ctx`].
+/// A signal that is not bound to a [`Scope`].
 #[derive(Clone)]
 pub struct RcSignal<T>(Rc<Signal<'static, T>>);
 

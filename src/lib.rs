@@ -49,7 +49,7 @@ pub type ScopeRef<'a> = &'a Scope<'a>;
 
 /// Creates a reactive scope.
 ///
-/// Returns a disposer function which will release the memory owned by the [`Ctx`].
+/// Returns a disposer function which will release the memory owned by the [`Scope`].
 /// Failure to call the disposer function will result in a memory leak.
 ///
 /// # Examples
@@ -83,7 +83,7 @@ pub fn create_scope_immediate(f: impl FnOnce(ScopeRef<'_>)) {
 }
 
 impl<'a> Scope<'a> {
-    /// Create a new [`Signal`] under the current [`Ctx`].
+    /// Create a new [`Signal`] under the current [`Scope`].
     /// The created signal lasts as long as the context and cannot be used outside of the context.
     pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'a, T> {
         let signal = Signal::new(value);
@@ -119,11 +119,11 @@ impl<'a> Scope<'a> {
         }
     }
 
-    /// Cleanup the resources owned by the [`Ctx`]. This is not automatically called in [`Drop`] because that
+    /// Cleanup the resources owned by the [`Scope`]. This is not automatically called in [`Drop`] because that
     /// would violate Rust's aliasing rules. However, [`dispose`](Self::dispose) only needs to take `&self`
-    /// instead of `&mut self`. Dropping a [`Ctx`] will automatically call [`dispose`](Self::dispose).
+    /// instead of `&mut self`. Dropping a [`Scope`] will automatically call [`dispose`](Self::dispose).
     ///
-    /// If a [`Ctx`] has already been disposed, calling it again does nothing.
+    /// If a [`Scope`] has already been disposed, calling it again does nothing.
     pub(crate) fn dispose(&self) {
         // Drop effects.
         drop(self.effects.take());
