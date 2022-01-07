@@ -38,4 +38,18 @@ impl<'a> Ctx<'a> {
 
         signal.get().unwrap()
     }
+
+    pub fn create_reducer<U, Msg>(
+        &'a self,
+        initial: U,
+        reduce: impl Fn(&U, Msg) -> U + 'a,
+    ) -> (&'a ReadSignal<U>, Rc<impl Fn(Msg) + 'a>) {
+        let memo = self.create_signal(initial);
+
+        let dispatcher = move |msg| {
+            memo.set(reduce(&memo.get_untracked(), msg));
+        };
+
+        (&*memo, Rc::new(dispatcher))
+    }
 }
