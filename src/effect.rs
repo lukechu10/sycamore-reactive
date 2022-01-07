@@ -195,7 +195,7 @@ mod tests {
 
             let double = ctx.create_signal(-1);
 
-            ctx.create_effect(move || {
+            ctx.create_effect(|| {
                 double.set(*state.get() * 2);
             });
             assert_eq!(*double.get(), 0); // calling create_effect should call the effect at least once
@@ -211,7 +211,7 @@ mod tests {
     fn effect_cannot_create_infinite_loop() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
-            ctx.create_effect(move || {
+            ctx.create_effect(|| {
                 state.get();
                 state.set(0);
             });
@@ -225,7 +225,7 @@ mod tests {
             let state = ctx.create_signal(0);
 
             let counter = ctx.create_signal(0);
-            ctx.create_effect(move || {
+            ctx.create_effect(|| {
                 counter.set(*counter.get_untracked() + 1);
 
                 // call state.get() twice but should subscribe once
@@ -249,7 +249,7 @@ mod tests {
             let state2 = ctx.create_signal(1);
 
             let counter = ctx.create_signal(0);
-            ctx.create_effect(move || {
+            ctx.create_effect(|| {
                 counter.set(*counter.get_untracked() + 1);
 
                 if *condition.get() {

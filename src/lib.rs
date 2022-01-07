@@ -5,7 +5,6 @@ pub mod memo;
 pub mod signal;
 
 use std::cell::RefCell;
-use std::mem::ManuallyDrop;
 use std::rc::{Rc, Weak};
 
 use indexmap::IndexMap;
@@ -64,7 +63,7 @@ pub type ScopeRef<'a> = &'a Scope<'a>;
 /// ```
 #[must_use = "not calling the disposer function will result in a memory leak"]
 pub fn create_scope(f: impl FnOnce(ScopeRef<'_>)) -> impl FnOnce() {
-    let ctx = ManuallyDrop::new(Scope::new());
+    let ctx = Scope::new();
     let boxed = Box::new(ctx);
     let ptr = Box::into_raw(boxed);
     // SAFETY: Safe because heap allocated value has stable address.
@@ -136,8 +135,6 @@ impl<'a> Scope<'a> {
     ///
     /// If a [`Scope`] has already been disposed, calling it again does nothing.
     pub(crate) fn dispose(&self) {
-        // Drop effects.
-        drop(self.effects.take());
         // Drop child contexts.
         for &i in self.child_ctx.take().values() {
             // SAFETY: These pointers were allocated in Self::create_child_scope.
@@ -145,6 +142,8 @@ impl<'a> Scope<'a> {
             // Dispose of ctx if it has not already been disposed.
             ctx.dispose()
         }
+        // Drop effects.
+        drop(self.effects.take());
         // Call cleanup functions.
         for cb in self.cleanups.take() {
             cb();
