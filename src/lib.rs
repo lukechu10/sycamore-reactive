@@ -21,6 +21,7 @@ pub struct Ctx<'a> {
     child_ctx: RefCell<Vec<*mut Ctx<'a>>>,
     // Ctx owns the raw pointers in the Vec.
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
+    parent: Option<&'a Self>,
 }
 
 pub type CtxRef<'a> = &'a Ctx<'a>;
@@ -80,8 +81,9 @@ impl<'a> Ctx<'a> {
     }
 
     /// Create a child scope.
-    pub fn create_child_scope(&self, f: impl FnOnce(CtxRef<'a>)) -> impl FnOnce() + 'a {
-        let ctx = Ctx::default();
+    pub fn create_child_scope(&'a self, f: impl FnOnce(CtxRef<'a>)) -> impl FnOnce() + 'a {
+        let mut ctx = Ctx::default();
+        ctx.parent = Some(self);
         let boxed = Box::new(ctx);
         let ptr = Box::into_raw(boxed);
         self.child_ctx.borrow_mut().push(ptr);
