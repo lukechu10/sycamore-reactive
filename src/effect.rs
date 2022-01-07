@@ -126,7 +126,10 @@ impl<'a> Scope<'a> {
         self.effects.borrow_mut().push(effect);
     }
 
-    pub fn create_effect_scoped(&'a self, mut f: impl FnMut(ScopeRef<'_>) + 'a) {
+    pub fn create_effect_scoped<'b>(&'a self, mut f: impl FnMut(ScopeRef<'b>) + 'a)
+    where
+        'a: 'b,
+    {
         let mut disposer: Option<Box<dyn FnOnce()>> = None;
         self.create_effect(move || {
             if let Some(disposer) = disposer.take() {
@@ -275,6 +278,34 @@ mod tests {
 
             state2.set(2);
             assert_eq!(*counter.get(), 4); // tracked after condition.set
+        });
+    }
+
+    #[test]
+    fn outer_effects_run_first() {
+        create_scope_immediate(|ctx| {
+            let trigger = ctx.create_signal(());
+
+            let outer_counter = ctx.create_signal(0);
+            let inner_counter = ctx.create_signal(0);
+
+            ctx.create_effect_scoped(|ctx| {
+                trigger.get(); // subscribe to trigger
+                outer_counter.set(*outer_counter.get_untracked() + 1);
+
+                ctx.create_effect(|| {
+                    trigger.get(); // subscribe to trigger
+                    inner_counter.set(*inner_counter.get_untracked() + 1);
+                });
+            });
+
+            assert_eq!(*outer_counter.get(), 1);
+            assert_eq!(*inner_counter.get(), 1);
+
+            trigger.set(());
+
+            assert_eq!(*outer_counter.get(), 2);
+            assert_eq!(*inner_counter.get(), 2);
         });
     }
 }
