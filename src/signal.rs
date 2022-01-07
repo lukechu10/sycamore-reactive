@@ -37,8 +37,7 @@ impl<'a> SignalEmitter<'a> {
     pub fn trigger_subscribers(&self) {
         // Clone subscribers to prevent modifying list when calling callbacks.
         let subscribers = self.0.borrow().clone();
-        // Reverse order of subscribers to trigger outer effects before inner effects.
-        for subscriber in subscribers.values().rev() {
+        for subscriber in subscribers.values() {
             // subscriber might have already been destroyed in the case of nested effects
             if let Some(callback) = subscriber.upgrade() {
                 // Might already be inside a callback, if infinite loop.
