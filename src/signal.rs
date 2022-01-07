@@ -89,6 +89,26 @@ impl<'a, T> ReadSignal<'a, T> {
     pub fn get_untracked(&self) -> Rc<T> {
         self.value.borrow().clone()
     }
+
+    /// Creates a mapped [`ReadSignal`]. This is equivalent to using [`create_memo`].
+    /// 
+    /// # Example
+    /// ```rust
+    /// # use sycamore_reactive::*;
+    /// # let disposer = create_scope(|ctx| {
+    /// let state = ctx.create_signal(1);
+    /// let double = state.map(&ctx, |&x| x * 2);
+    /// assert_eq!(*double.get(), 2);
+    /// 
+    /// state.set(2);
+    /// assert_eq!(*double.get(), 4);
+    /// # });
+    /// # disposer();
+    /// ```
+    pub fn map<U>(&self, ctx: CtxRef<'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
+        let this = self.clone();
+        ctx.create_memo(move || f(&this.get()))
+    }
 }
 
 /// Reactive state that can be updated and subscribed to.
