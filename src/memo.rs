@@ -8,7 +8,7 @@ impl<'a> Ctx<'a> {
     /// # Example
     /// ```
     /// # use sycamore_reactive::*;
-    /// # let disposer = create_scope(|ctx| {
+    /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(0);
     ///
     /// let double = ctx.create_memo(|| *state.get() * 2);
@@ -17,7 +17,6 @@ impl<'a> Ctx<'a> {
     /// state.set(1);
     /// assert_eq!(*double.get(), 2);
     /// # });
-    /// # disposer();
     /// ```
     pub fn create_memo<U: 'a>(&'a self, f: impl FnMut() -> U + 'a) -> &'a ReadSignal<'a, U> {
         self.create_selector_with(f, |_, _| false)
@@ -32,7 +31,7 @@ impl<'a> Ctx<'a> {
     /// # Example
     /// ```
     /// # use sycamore_reactive::*;
-    /// # let disposer = create_scope(|ctx| {
+    /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(0);
     ///
     /// let double = ctx.create_selector(|| *state.get() * 2);
@@ -41,7 +40,6 @@ impl<'a> Ctx<'a> {
     /// state.set(1);
     /// assert_eq!(*double.get(), 2);
     /// # });
-    /// # disposer();
     /// ```
     pub fn create_selector<U: PartialEq + 'a>(
         &'a self,
@@ -103,7 +101,7 @@ impl<'a> Ctx<'a> {
     ///     Decrement,
     /// }
     ///
-    /// # let disposer = create_scope(|ctx| {
+    /// # create_scope_immediate(|ctx| {
     /// let (state, dispatch) = ctx.create_reducer(0, |state, msg: Msg| match msg {
     ///     Msg::Increment => *state + 1,
     ///     Msg::Decrement => *state - 1,
@@ -115,7 +113,6 @@ impl<'a> Ctx<'a> {
     /// dispatch(Msg::Decrement);
     /// assert_eq!(*state.get(), 0);
     /// # });
-    /// # disposer();
     /// ```
     pub fn create_reducer<U, Msg>(
         &'a self,

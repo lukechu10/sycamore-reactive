@@ -118,7 +118,7 @@ impl<'a> Ctx<'a> {
 ///
 /// ```
 /// # use sycamore_reactive::*;
-/// # let disposer = create_scope(|ctx| {
+/// # create_scope_immediate(|ctx| {
 /// let state = ctx.create_signal(1);
 /// let double = ctx.create_memo(|| untrack(|| *state.get() * 2));
 /// //                              ^^^^^^^
@@ -128,7 +128,6 @@ impl<'a> Ctx<'a> {
 /// // double value should still be old value because state was untracked
 /// assert_eq!(*double.get(), 2);
 /// # });
-/// # disposer();
 /// ```
 pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
     let f = Rc::new(RefCell::new(Some(f)));

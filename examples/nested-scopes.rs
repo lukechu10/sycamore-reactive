@@ -1,7 +1,7 @@
 use sycamore_reactive::*;
 
 fn main() {
-    let disposer = create_scope(|ctx| {
+    create_scope_immediate(|ctx| {
         let outer = ctx.create_signal(0);
         let disposer = ctx.create_child_scope(|ctx| {
             dbg!(outer.get());
@@ -14,5 +14,4 @@ fn main() {
         // Doesn't call the effect because it has been disposed.
         outer.set(2);
     });
-    disposer();
 }

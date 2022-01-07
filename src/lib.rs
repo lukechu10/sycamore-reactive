@@ -25,7 +25,7 @@ pub struct Ctx<'a> {
 
 pub type CtxRef<'a> = &'a Ctx<'a>;
 
-/// Create a reactive scope.
+/// Creates a reactive scope.
 ///
 /// Returns a disposer function which will release the memory owned by the [`Ctx`].
 /// Failure to call the disposer function will result in a memory leak.
@@ -33,8 +33,7 @@ pub type CtxRef<'a> = &'a Ctx<'a>;
 /// # Examples
 ///
 /// ```
-/// use sycamore_reactive::create_scope;
-///
+/// # use sycamore_reactive::*;
 /// let disposer = create_scope(|ctx| {
 ///     // Use ctx here.
 /// });
@@ -53,6 +52,12 @@ pub fn create_scope(f: impl FnOnce(CtxRef<'_>)) -> impl FnOnce() {
         let boxed = unsafe { Box::from_raw(ptr) };
         boxed.dispose();
     }
+}
+
+/// Creates a reactive scope, runs the callback, and disposes the scope immediately.
+pub fn create_scope_immediate(f: impl FnOnce(CtxRef<'_>)) {
+    let disposer = create_scope(f);
+    disposer();
 }
 
 impl<'a> Ctx<'a> {

@@ -67,14 +67,13 @@ impl<'a, T> ReadSignal<'a, T> {
     /// # Example
     /// ```rust
     /// # use sycamore_reactive::*;
-    /// # let disposer = create_scope(|ctx| {
+    /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(0);
     /// assert_eq!(*state.get(), 0);
     ///
     /// state.set(1);
     /// assert_eq!(*state.get(), 1);
     /// # });
-    /// # disposer();
     /// ```
     pub fn get(&self) -> Rc<T> {
         self.emitter.track();
@@ -88,7 +87,7 @@ impl<'a, T> ReadSignal<'a, T> {
     ///
     /// ```
     /// # use sycamore_reactive::*;
-    /// # let disposer = create_scope(|ctx| {
+    /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(1);
     /// let double = ctx.create_memo(|| *state.get_untracked() * 2);
     /// assert_eq!(*double.get(), 2);
@@ -97,7 +96,6 @@ impl<'a, T> ReadSignal<'a, T> {
     /// // double value should still be old value because state was untracked
     /// assert_eq!(*double.get(), 2);
     /// # });
-    /// # disposer();
     /// ```
     pub fn get_untracked(&self) -> Rc<T> {
         self.value.borrow().clone()
@@ -108,7 +106,7 @@ impl<'a, T> ReadSignal<'a, T> {
     /// # Example
     /// ```rust
     /// # use sycamore_reactive::*;
-    /// # let disposer = create_scope(|ctx| {
+    /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(1);
     /// let double = state.map(&ctx, |&x| x * 2);
     /// assert_eq!(*double.get(), 2);
@@ -116,7 +114,6 @@ impl<'a, T> ReadSignal<'a, T> {
     /// state.set(2);
     /// assert_eq!(*double.get(), 4);
     /// # });
-    /// # disposer();
     /// ```
     pub fn map<U>(&self, ctx: CtxRef<'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
         let this = self.clone();
@@ -143,14 +140,13 @@ impl<'a, T> Signal<'a, T> {
     /// # Example
     /// ```
     /// # use sycamore_reactive::*;
-    /// # let disposer = create_scope(|ctx| {
+    /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(0);
     /// assert_eq!(*state.get(), 0);
     ///
     /// state.set(1);
     /// assert_eq!(*state.get(), 1);
     /// # });
-    /// # disposer();
     /// ```
     pub fn set(&self, value: T) {
         *self.0.value.borrow_mut() = Rc::new(value);
@@ -190,5 +186,48 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
 
     fn unsubscribe(&self, cb: EffectCallbackPtr<'a>) {
         self.emitter.unsubscribe(cb);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signals() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+            assert_eq!(*state.get(), 0);
+
+            state.set(1);
+            assert_eq!(*state.get(), 1);
+        });
+    }
+
+    #[test]
+    fn signal_composition() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let double = || *state.get() * 2;
+
+            assert_eq!(double(), 0);
+
+            state.set(1);
+            assert_eq!(double(), 2);
+        });
+    }
+
+    #[test]
+    fn state_handle() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+            let readonly: &ReadSignal<i32> = state.deref();
+
+            assert_eq!(*readonly.get(), 0);
+
+            state.set(1);
+            assert_eq!(*readonly.get(), 1);
+        });
     }
 }

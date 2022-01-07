@@ -1,7 +1,7 @@
 use sycamore_reactive::*;
 
 fn main() {
-    let disposer = create_scope(|ctx| {
+    create_scope_immediate(|ctx| {
         let data = ctx.create_signal(0);
         let doubled = ctx.create_memo(|| *data.get() * 2);
         ctx.create_effect(|| {
@@ -16,5 +16,4 @@ fn main() {
         data.set(3);
         data.set(4);
     });
-    disposer();
 }
