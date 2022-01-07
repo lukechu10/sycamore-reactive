@@ -82,7 +82,7 @@ impl<'a> Ctx<'a> {
         signal.get().unwrap()
     }
 
-    /// An alternative to [`Signal::new`] that uses a reducer to get the next value.
+    /// An alternative to [`create_signal`](Self::create_signal) that uses a reducer to get the next value.
     ///
     /// It uses a reducer function that takes the previous value and a message and returns the next
     /// value.

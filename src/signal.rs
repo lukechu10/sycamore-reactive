@@ -101,7 +101,7 @@ impl<'a, T> ReadSignal<'a, T> {
         self.value.borrow().clone()
     }
 
-    /// Creates a mapped [`ReadSignal`]. This is equivalent to using [`create_memo`].
+    /// Creates a mapped [`ReadSignal`]. This is equivalent to using [`create_memo`](Ctx::create_memo).
     ///
     /// # Example
     /// ```rust
@@ -116,8 +116,7 @@ impl<'a, T> ReadSignal<'a, T> {
     /// # });
     /// ```
     pub fn map<U>(&self, ctx: CtxRef<'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
-        let this = self.clone();
-        ctx.create_memo(move || f(&this.get()))
+        ctx.create_memo(move || f(&self.get()))
     }
 }
 
