@@ -34,6 +34,10 @@ impl<'a> SignalEmitter<'a> {
         });
     }
 
+    /// Calls all the subscribers without modifying the state.
+    /// This can be useful when using patterns such as inner mutability where the state updated will
+    /// not be automatically triggered. In the general case, however, it is preferable to use
+    /// [`Signal::set()`] instead.
     pub fn trigger_subscribers(&self) {
         // Clone subscribers to prevent modifying list when calling callbacks.
         let subscribers = self.0.borrow().clone();
@@ -87,9 +91,11 @@ impl<'a, T> ReadSignal<'a, T> {
     }
 }
 
+/// Reactive state that can be updated and subscribed to.
 pub struct Signal<'a, T>(ReadSignal<'a, T>);
 
 impl<'a, T> Signal<'a, T> {
+    /// Create a new [`Signal`] with the specified value.
     pub(crate) fn new(value: T) -> Self {
         Self(ReadSignal {
             value: RefCell::new(Rc::new(value)),
@@ -97,6 +103,22 @@ impl<'a, T> Signal<'a, T> {
         })
     }
 
+    /// Set the current value of the state.
+    ///
+    /// This will notify and update any effects and memos that depend on this value.
+    ///
+    /// # Example
+    /// ```
+    /// # use sycamore_reactive::*;
+    /// # let disposer = create_scope(|ctx| {
+    /// let state = ctx.create_signal(0);
+    /// assert_eq!(*state.get(), 0);
+    ///
+    /// state.set(1);
+    /// assert_eq!(*state.get(), 1);
+    /// # });
+    /// # disposer();
+    /// ```
     pub fn set(&self, value: T) {
         *self.0.value.borrow_mut() = Rc::new(value);
         self.0.emitter.trigger_subscribers();
@@ -112,7 +134,9 @@ impl<'a, T> Deref for Signal<'a, T> {
 }
 
 pub(crate) trait AnySignal<'a> {
+    /// Subscribe the effect to the signal.
     fn subscribe(&self, cb: WeakEffectCallback<'a>);
+    /// Unsubscribe the effect from the signal.
     fn unsubscribe(&self, cb: EffectCallbackPtr<'a>);
 }
 

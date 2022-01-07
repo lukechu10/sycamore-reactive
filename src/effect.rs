@@ -16,7 +16,7 @@ pub(crate) struct EffectState<'a> {
 }
 
 /// Implements reference equality for [`AnySignal`]s.
-pub struct EffectDependency<'a>(&'a SignalEmitter<'a>);
+pub(crate) struct EffectDependency<'a>(&'a SignalEmitter<'a>);
 
 impl<'a> std::cmp::PartialEq for EffectDependency<'a> {
     fn eq(&self, other: &Self) -> bool {
