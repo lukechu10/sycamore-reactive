@@ -150,3 +150,98 @@ pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
         g.take().unwrap()()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn effect() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let double = ctx.create_signal(-1);
+
+            ctx.create_effect(move || {
+                double.set(*state.get() * 2);
+            });
+            assert_eq!(*double.get(), 0); // calling create_effect should call the effect at least once
+
+            state.set(1);
+            assert_eq!(*double.get(), 2);
+            state.set(2);
+            assert_eq!(*double.get(), 4);
+        });
+    }
+
+    #[test]
+    fn effect_cannot_create_infinite_loop() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+            ctx.create_effect(move || {
+                state.get();
+                state.set(0);
+            });
+            state.set(0);
+        });
+    }
+
+    #[test]
+    fn effect_should_only_subscribe_once_to_same_signal() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let counter = ctx.create_signal(0);
+            ctx.create_effect(move || {
+                counter.set(*counter.get_untracked() + 1);
+
+                // call state.get() twice but should subscribe once
+                state.get();
+                state.get();
+            });
+
+            assert_eq!(*counter.get(), 1);
+
+            state.set(1);
+            assert_eq!(*counter.get(), 2);
+        });
+    }
+
+    #[test]
+    fn effect_should_recreate_dependencies_each_time() {
+        create_scope_immediate(|ctx| {
+            let condition = ctx.create_signal(true);
+
+            let state1 = ctx.create_signal(0);
+            let state2 = ctx.create_signal(1);
+
+            let counter = ctx.create_signal(0);
+            ctx.create_effect(move || {
+                counter.set(*counter.get_untracked() + 1);
+
+                if *condition.get() {
+                    state1.get();
+                } else {
+                    state2.get();
+                }
+            });
+
+            assert_eq!(*counter.get(), 1);
+
+            state1.set(1);
+            assert_eq!(*counter.get(), 2);
+
+            state2.set(1);
+            assert_eq!(*counter.get(), 2); // not tracked
+
+            condition.set(false);
+            assert_eq!(*counter.get(), 3);
+
+            state1.set(2);
+            assert_eq!(*counter.get(), 3); // not tracked
+
+            state2.set(2);
+            assert_eq!(*counter.get(), 4); // tracked after condition.set
+        });
+    }
+}
