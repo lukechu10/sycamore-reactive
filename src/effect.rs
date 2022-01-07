@@ -113,7 +113,7 @@ impl<'a> Ctx<'a> {
 /// Run the passed closure inside an untracked dependency scope.
 ///
 /// See also [`ReadSignal::get_untracked()`].
-/// 
+///
 /// # Example
 ///
 /// ```
