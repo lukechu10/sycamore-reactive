@@ -47,7 +47,7 @@ impl<'a> EffectState<'a> {
     }
 }
 
-impl<'a> Ctx<'a> {
+impl<'a> Scope<'a> {
     pub fn create_effect(&self, f: impl FnMut() + 'a) {
         let f = Rc::new(RefCell::new(f));
 

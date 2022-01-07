@@ -115,7 +115,7 @@ impl<'a, T> ReadSignal<'a, T> {
     /// assert_eq!(*double.get(), 4);
     /// # });
     /// ```
-    pub fn map<U>(&self, ctx: CtxRef<'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
+    pub fn map<U>(&self, ctx: ScopeRef<'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
         ctx.create_memo(move || f(&self.get()))
     }
 }
@@ -188,12 +188,28 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
     }
 }
 
+/// A signal that is not bound to a [`Ctx`].
+#[derive(Clone)]
+pub struct RcSignal<T>(Rc<Signal<'static, T>>);
+
+impl<T> Deref for RcSignal<T> {
+    type Target = Signal<'static, T>;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+pub fn create_rc_signal<T>(value: T) -> RcSignal<T> {
+    RcSignal(Rc::new(Signal::new(value)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn signals() {
+    fn signal() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
             assert_eq!(*state.get(), 0);
@@ -218,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn state_handle() {
+    fn read_signal() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
             let readonly: &ReadSignal<i32> = state.deref();
@@ -227,6 +243,19 @@ mod tests {
 
             state.set(1);
             assert_eq!(*readonly.get(), 1);
+        });
+    }
+
+    #[test]
+    fn rc_signal() {
+        create_scope_immediate(|ctx| {
+            let rc_state = create_rc_signal(0);
+            let rc_state_cloned = rc_state.clone();
+            let double = ctx.create_memo(move || *rc_state_cloned.get() * 2);
+            assert_eq!(*double.get(), 0);
+
+            rc_state.set(1);
+            assert_eq!(*double.get(), 2);
         });
     }
 }

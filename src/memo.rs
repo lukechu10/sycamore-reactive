@@ -2,7 +2,7 @@ use std::cell::Cell;
 
 use crate::*;
 
-impl<'a> Ctx<'a> {
+impl<'a> Scope<'a> {
     /// Creates a memoized value from some signals. Also know as "derived stores".
     ///
     /// # Example

@@ -13,18 +13,39 @@ pub use indexmap::IndexMap;
 pub use effect::*;
 pub use signal::*;
 
-/// Reactive context.
-#[derive(Default)]
-pub struct Ctx<'a> {
+/// A reactive scope.
+///
+/// The only way to ever use a scope should be behind a reference.
+/// It should never be possible to access a raw [`Scope`] on the stack.
+///
+/// The intended way to access a [`Scope`] is with the [`create_scope`] function.
+///
+/// For convenience, the [`ScopeRef`] type alias is defined as a reference to a [`Scope`].
+pub struct Scope<'a> {
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
-    child_ctx: RefCell<Vec<*mut Ctx<'a>>>,
+    child_ctx: RefCell<Vec<*mut Scope<'a>>>,
     // Ctx owns the raw pointers in the Vec.
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
     parent: Option<&'a Self>,
 }
 
-pub type CtxRef<'a> = &'a Ctx<'a>;
+impl<'a> Scope<'a> {
+    /// Create a new [`Scope`]. This function is deliberately not `pub` because it should not be possible to
+    /// access a [`Scope`] directly on the stack.
+    pub(crate) fn new() -> Self {
+        Self {
+            effects: Default::default(),
+            cleanups: Default::default(),
+            child_ctx: Default::default(),
+            signals: Default::default(),
+            parent: None,
+        }
+    }
+}
+
+/// A reference to a [`Scope`].
+pub type ScopeRef<'a> = &'a Scope<'a>;
 
 /// Creates a reactive scope.
 ///
@@ -41,8 +62,8 @@ pub type CtxRef<'a> = &'a Ctx<'a>;
 /// disposer();
 /// ```
 #[must_use = "not calling the disposer function will result in a memory leak"]
-pub fn create_scope(f: impl FnOnce(CtxRef<'_>)) -> impl FnOnce() {
-    let ctx = ManuallyDrop::new(Ctx::default());
+pub fn create_scope(f: impl FnOnce(ScopeRef<'_>)) -> impl FnOnce() {
+    let ctx = ManuallyDrop::new(Scope::new());
     let boxed = Box::new(ctx);
     let ptr = Box::into_raw(boxed);
     // SAFETY: Safe because heap allocated value has stable address.
@@ -56,12 +77,12 @@ pub fn create_scope(f: impl FnOnce(CtxRef<'_>)) -> impl FnOnce() {
 }
 
 /// Creates a reactive scope, runs the callback, and disposes the scope immediately.
-pub fn create_scope_immediate(f: impl FnOnce(CtxRef<'_>)) {
+pub fn create_scope_immediate(f: impl FnOnce(ScopeRef<'_>)) {
     let disposer = create_scope(f);
     disposer();
 }
 
-impl<'a> Ctx<'a> {
+impl<'a> Scope<'a> {
     /// Create a new [`Signal`] under the current [`Ctx`].
     /// The created signal lasts as long as the context and cannot be used outside of the context.
     pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'a, T> {
@@ -81,8 +102,8 @@ impl<'a> Ctx<'a> {
     }
 
     /// Create a child scope.
-    pub fn create_child_scope(&'a self, f: impl FnOnce(CtxRef<'a>)) -> impl FnOnce() + 'a {
-        let mut ctx = Ctx::default();
+    pub fn create_child_scope(&'a self, f: impl FnOnce(ScopeRef<'a>)) -> impl FnOnce() + 'a {
+        let mut ctx = Scope::new();
         ctx.parent = Some(self);
         let boxed = Box::new(ctx);
         let ptr = Box::into_raw(boxed);
@@ -127,7 +148,7 @@ impl<'a> Ctx<'a> {
     }
 }
 
-impl Drop for Ctx<'_> {
+impl Drop for Scope<'_> {
     fn drop(&mut self) {
         self.dispose();
     }
