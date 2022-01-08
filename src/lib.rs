@@ -80,7 +80,8 @@ pub fn create_scope(f: impl FnOnce(ScopeRef<'_>)) -> impl FnOnce() {
     move || {
         // SAFETY: Safe because ptr created using Box::into_raw.
         let boxed = unsafe { Box::from_raw(ptr) };
-        boxed.dispose();
+        // SAFETY: Outside of call to f.
+        unsafe { boxed.dispose(); }
     }
 }
 
@@ -141,7 +142,6 @@ impl<'a> Scope<'a> {
     /// If the disposer is never called, the lifetime `'b` lasts as long as `'a`.
     /// As such, it is impossible for anything allocated in the child scope to escape into the
     /// parent scope.
-    ///
     // TODO: should be compile_fail
     /// ```
     /// # use sycamore_reactive::*;
@@ -180,7 +180,10 @@ impl<'a> Scope<'a> {
             // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer
             // than 'a.
             let ctx = unsafe { Box::from_raw(ctx) };
-            ctx.dispose();
+            // SAFETY: Outside of call to f.
+            unsafe {
+                ctx.dispose();
+            }
         }
     }
 
@@ -190,11 +193,15 @@ impl<'a> Scope<'a> {
     /// automatically call [`dispose`](Self::dispose).
     ///
     /// If a [`Scope`] has already been disposed, calling it again does nothing.
-    pub(crate) fn dispose(&self) {
+    ///
+    /// # Safety
+    ///
+    /// `dispose` should not be called inside the `create_scope` or `create_child_scope` closure.
+    pub(crate) unsafe fn dispose(&self) {
         // Drop child contexts.
         for &i in self.child_ctx.take().values() {
             // SAFETY: These pointers were allocated in Self::create_child_scope.
-            let ctx = unsafe { Box::from_raw(i) };
+            let ctx = Box::from_raw(i);
             // Dispose of ctx if it has not already been disposed.
             ctx.dispose()
         }
@@ -209,23 +216,20 @@ impl<'a> Scope<'a> {
         // Drop signals.
         for i in self.signals.take() {
             // SAFETY: These pointers were allocated in Self::create_signal.
-            unsafe {
-                drop(Box::from_raw(i));
-            }
+            drop(Box::from_raw(i));
         }
         // Drop refs.
         for i in self.refs.take() {
             // SAFETY: These pointers were allocated in Self::create_ref.
-            unsafe {
-                drop(Box::from_raw(i));
-            }
+            drop(Box::from_raw(i));
         }
     }
 }
 
 impl Drop for Scope<'_> {
     fn drop(&mut self) {
-        self.dispose();
+        // SAFETY: scope cannot be dropped while it is borrowed inside closure.
+        unsafe { self.dispose() };
     }
 }
 
