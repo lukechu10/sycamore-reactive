@@ -144,10 +144,12 @@ impl<'a> Scope<'a> {
         }
         // Drop effects.
         drop(self.effects.take());
-        // Call cleanup functions.
-        for cb in self.cleanups.take() {
-            cb();
-        }
+        // Call cleanup functions in an untracked scope.
+        untrack(|| {
+            for cb in self.cleanups.take() {
+                cb();
+            }
+        });
         // Drop signals.
         for i in self.signals.take() {
             // SAFETY: These pointers were allocated in Self::create_signal.
@@ -161,5 +163,72 @@ impl<'a> Scope<'a> {
 impl Drop for Scope<'_> {
     fn drop(&mut self) {
         self.dispose();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::create_scope_immediate;
+
+    #[test]
+    fn cleanup() {
+        create_scope_immediate(|ctx| {
+            let cleanup_called = ctx.create_signal(false);
+            let disposer = ctx.create_child_scope(|ctx| {
+                ctx.on_cleanup(move || {
+                    cleanup_called.set(true);
+                });
+            });
+            assert!(!*cleanup_called.get());
+            disposer();
+            assert!(*cleanup_called.get());
+        });
+    }
+
+    #[test]
+    fn cleanup_in_effect() {
+        create_scope_immediate(|ctx| {
+            let trigger = ctx.create_signal(());
+
+            let counter = ctx.create_signal(0);
+
+            ctx.create_effect_scoped(|ctx| {
+                trigger.track();
+
+                ctx.on_cleanup(|| {
+                    counter.set(*counter.get() + 1);
+                });
+            });
+
+            assert_eq!(*counter.get(), 0);
+
+            trigger.set(());
+            assert_eq!(*counter.get(), 1);
+
+            trigger.set(());
+            assert_eq!(*counter.get(), 2);
+        });
+    }
+
+    #[test]
+    fn cleanup_is_untracked() {
+        create_scope_immediate(|ctx| {
+            let trigger = ctx.create_signal(());
+
+            let counter = ctx.create_signal(0);
+
+            ctx.create_effect_scoped(|ctx| {
+                counter.set(*counter.get_untracked() + 1);
+
+                ctx.on_cleanup(|| {
+                    trigger.track(); // trigger should not be tracked
+                });
+            });
+
+            assert_eq!(*counter.get(), 1);
+
+            trigger.set(());
+            assert_eq!(*counter.get(), 1);
+        });
     }
 }
