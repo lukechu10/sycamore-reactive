@@ -168,23 +168,12 @@ impl<'a> Scope<'a> {
 /// # });
 /// ```
 pub fn untrack<T>(f: impl FnOnce() -> T) -> T {
-    let f = Rc::new(RefCell::new(Some(f)));
-    let g = Rc::clone(&f);
-
-    // Do not panic if running inside destructor.
-    if let Ok(ret) = EFFECTS.try_with(|effects| {
+    EFFECTS.with(|effects| {
         let tmp = effects.take();
-
-        let ret = f.take().unwrap()();
-
+        let ret = f();
         *effects.borrow_mut() = tmp;
-
         ret
-    }) {
-        ret
-    } else {
-        g.take().unwrap()()
-    }
+    })
 }
 
 #[cfg(test)]
