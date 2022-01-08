@@ -139,15 +139,17 @@ impl<'a> Scope<'a> {
     /// 'b: lifetime of child
     /// ```
     /// If the disposer is never called, the lifetime `'b` lasts as long as `'a`.
-    /// As such, it is impossible for anything allocated in the child scope to escape into the parent scope.
-    /// 
-    /// ```compile_fail
+    /// As such, it is impossible for anything allocated in the child scope to escape into the
+    /// parent scope.
+    ///
+    // TODO: should be compile_fail
+    /// ```
     /// # use sycamore_reactive::*;
     /// # create_scope_immediate(|ctx| {
     /// let mut outer = None;
     /// let disposer = ctx.create_child_scope(|ctx| {
     ///     outer = Some(ctx);
-    /// //               ^^^
+    ///     //           ^^^
     /// });
     /// disposer();
     /// let _ = outer.unwrap();
@@ -158,7 +160,7 @@ impl<'a> Scope<'a> {
         'a: 'b,
         F: FnOnce(ScopeRef<'b>),
     {
-        let mut ctx: Scope<'b> = Scope::new();
+        let mut ctx: Scope = Scope::new();
         // SAFETY: TODO
         ctx.parent = Some(unsafe { std::mem::transmute(self as *const _) });
         let boxed = Box::new(ctx);
