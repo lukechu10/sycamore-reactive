@@ -1,16 +1,17 @@
 //! Reactive primitives for Sycamore.
 
 pub mod effect;
+pub mod iter;
 pub mod memo;
 pub mod signal;
+
+pub use effect::*;
+pub use signal::*;
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use indexmap::IndexMap;
-
-pub use effect::*;
-pub use signal::*;
 use slotmap::{DefaultKey, SlotMap};
 
 /// A reactive scope.
@@ -229,6 +230,15 @@ mod tests {
 
             trigger.set(());
             assert_eq!(*counter.get(), 1);
+        });
+    }
+
+    #[test]
+    fn can_store_disposer_in_own_signal() {
+        create_scope_immediate(|ctx| {
+            let signal = ctx.create_signal(None);
+            let disposer = ctx.create_child_scope(|_ctx| {});
+            signal.set(Some(disposer));
         });
     }
 }
