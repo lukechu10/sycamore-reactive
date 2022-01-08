@@ -308,4 +308,29 @@ mod tests {
             assert_eq!(*inner_counter.get(), 2);
         });
     }
+
+    #[test]
+    fn destroy_effects_on_scope_dispose() {
+        create_scope_immediate(|ctx| {
+            let counter = ctx.create_signal(0);
+
+            let trigger = ctx.create_signal(());
+
+            let disposer = ctx.create_child_scope(|ctx| {
+                ctx.create_effect(|| {
+                    trigger.get(); // subscribe to trigger
+                    counter.set(*counter.get_untracked() + 1);
+                });
+            });
+
+            assert_eq!(*counter.get(), 1);
+
+            trigger.set(());
+            assert_eq!(*counter.get(), 2);
+
+            disposer();
+            trigger.set(());
+            assert_eq!(*counter.get(), 2); // inner effect should be destroyed and thus not executed
+        });
+    }
 }
