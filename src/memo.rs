@@ -69,14 +69,14 @@ impl<'a> Scope<'a> {
         self.create_effect({
             let signal = signal.clone();
             move || {
+                let new = f();
                 if let Some(signal) = signal.get() {
-                    let new = f();
                     // Check if new value is different from old value.
-                    if !eq_f(&new, &*signal.get()) {
-                        signal.set(f())
+                    if !eq_f(&new, &*signal.get_untracked()) {
+                        signal.set(new)
                     }
                 } else {
-                    signal.set(Some(self.create_signal(f())))
+                    signal.set(Some(self.create_signal(new)))
                 }
             }
         });
@@ -128,5 +128,151 @@ impl<'a> Scope<'a> {
         };
 
         (&*memo, Rc::new(dispatcher))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn memo() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let double = ctx.create_memo(|| *state.get() * 2);
+            assert_eq!(*double.get(), 0);
+
+            state.set(1);
+            assert_eq!(*double.get(), 2);
+
+            state.set(2);
+            assert_eq!(*double.get(), 4);
+        });
+    }
+
+    /// Make sure value is memoized rather than executed on demand.
+    #[test]
+    fn memo_only_run_once() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let counter = ctx.create_signal(0);
+            let double = ctx.create_memo(|| {
+                counter.set(*counter.get_untracked() + 1);
+                *state.get() * 2
+            });
+            assert_eq!(*counter.get(), 1); // once for calculating initial derived state
+
+            state.set(2);
+            assert_eq!(*counter.get(), 2);
+            assert_eq!(*double.get(), 4);
+            assert_eq!(*counter.get(), 2); // should still be 2 after access
+        });
+    }
+
+    #[test]
+    fn dependency_on_memo() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let double = ctx.create_memo(|| *state.get() * 2);
+
+            let quadruple = ctx.create_memo(|| *double.get() * 2);
+
+            assert_eq!(*quadruple.get(), 0);
+
+            state.set(1);
+            assert_eq!(*quadruple.get(), 4);
+        });
+    }
+
+    #[test]
+    fn untracked_memo() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(1);
+
+            let double = ctx.create_memo(|| *state.get_untracked() * 2);
+
+            assert_eq!(*double.get(), 2);
+
+            state.set(2);
+            assert_eq!(*double.get(), 2); // double value should still be true because state.get() was
+                                          // inside untracked
+        });
+    }
+
+    #[test]
+    fn selector() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let double = ctx.create_selector(|| *state.get() * 2);
+
+            let counter = ctx.create_signal(0);
+            ctx.create_effect(|| {
+                counter.set(*counter.get_untracked() + 1);
+
+                double.track();
+            });
+            assert_eq!(*double.get(), 0);
+            assert_eq!(*counter.get(), 1);
+
+            state.set(0);
+            assert_eq!(*double.get(), 0);
+            assert_eq!(*counter.get(), 1); // calling set_state should not trigger the effect
+
+            state.set(2);
+            assert_eq!(*double.get(), 4);
+            assert_eq!(*counter.get(), 2);
+        });
+    }
+
+    #[test]
+    fn reducer() {
+        create_scope_immediate(|ctx| {
+            enum Msg {
+                Increment,
+                Decrement,
+            }
+
+            let (state, dispatch) = ctx.create_reducer(0, |state, msg: Msg| match msg {
+                Msg::Increment => *state + 1,
+                Msg::Decrement => *state - 1,
+            });
+
+            assert_eq!(*state.get(), 0);
+            dispatch(Msg::Increment);
+            assert_eq!(*state.get(), 1);
+            dispatch(Msg::Decrement);
+            assert_eq!(*state.get(), 0);
+
+            dispatch(Msg::Increment);
+            dispatch(Msg::Increment);
+            assert_eq!(*state.get(), 2);
+        });
+    }
+
+    #[test]
+    fn memo_reducer() {
+        create_scope_immediate(|ctx| {
+            enum Msg {
+                Increment,
+                Decrement,
+            }
+
+            let (state, dispatch) = ctx.create_reducer(0, |state, msg: Msg| match msg {
+                Msg::Increment => *state + 1,
+                Msg::Decrement => *state - 1,
+            });
+
+            let doubled = ctx.create_memo(|| *state.get() * 2);
+
+            assert_eq!(*doubled.get(), 0);
+            dispatch(Msg::Increment);
+            assert_eq!(*doubled.get(), 2);
+            dispatch(Msg::Decrement);
+            assert_eq!(*doubled.get(), 0);
+        });
     }
 }
