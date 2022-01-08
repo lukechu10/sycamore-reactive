@@ -5,17 +5,43 @@ use std::cell::Cell;
 use crate::*;
 
 impl<'a> Scope<'a> {
-    /// Creates a memoized value from some signals. Also know as "derived stores".
+    /// Creates a memoized computation from some signals.
+    /// The output is derived from all the signals that are used within the memo closure.
+    /// If any of the tracked signals are updated, the memo is also updated.
+    ///
+    /// # Difference from derived signals
+    ///
+    /// Derived signals (functions referencing signals) are lazy and do not keep track of the result
+    /// of the computation. This means that the computation will not be executed until needed.
+    /// This also means that calling the derived signal twice will result in the same computation
+    /// twice.
+    ///
+    /// ```
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// let state = ctx.create_signal(0);
+    /// let double = || *state.get() * 2;
+    ///
+    /// let _ = double();
+    /// // Here, the closure named double is called again.
+    /// // If the computation is expensive enough, this would be wasted work!
+    /// let _ = double();
+    /// # });
+    /// ```
+    ///
+    /// Memos, on the other hand, are eagerly evaluated and will only run the computation when one
+    /// of its dependencies change.
+    ///
+    /// Memos also incur a slightly higher performance penalty than simple derived signals.
     ///
     /// # Example
     /// ```
     /// # use sycamore_reactive::*;
     /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(0);
-    ///
     /// let double = ctx.create_memo(|| *state.get() * 2);
-    /// assert_eq!(*double.get(), 0);
     ///
+    /// assert_eq!(*double.get(), 0);
     /// state.set(1);
     /// assert_eq!(*double.get(), 2);
     /// # });
@@ -24,21 +50,22 @@ impl<'a> Scope<'a> {
         self.create_selector_with(f, |_, _| false)
     }
 
-    /// Creates a memoized value from some signals. Also know as "derived stores".
-    /// Unlike [`create_memo`](Self::create_memo), this function will not notify dependents of a change if the output is
-    /// the same. That is why the output of the function must implement [`PartialEq`].
+    /// Creates a memoized value from some signals.
+    /// Unlike [`create_memo`](Self::create_memo), this function will not notify dependents of a
+    /// change if the output is the same. That is why the output of the function must implement
+    /// [`PartialEq`].
     ///
-    /// To specify a custom comparison function, use [`create_selector_with`](Self::create_selector_with).
+    /// To specify a custom comparison function, use
+    /// [`create_selector_with`](Self::create_selector_with).
     ///
     /// # Example
     /// ```
     /// # use sycamore_reactive::*;
     /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(0);
-    ///
     /// let double = ctx.create_selector(|| *state.get() * 2);
-    /// assert_eq!(*double.get(), 0);
     ///
+    /// assert_eq!(*double.get(), 0);
     /// state.set(1);
     /// assert_eq!(*double.get(), 2);
     /// # });
@@ -50,12 +77,12 @@ impl<'a> Scope<'a> {
         self.create_selector_with(f, PartialEq::eq)
     }
 
-    /// Creates a memoized value from some signals. Also know as "derived stores".
-    /// Unlike [`create_memo`](Self::create_memo), this function will not notify dependents of a change if the output is
-    /// the same.
+    /// Creates a memoized value from some signals.
+    /// Unlike [`create_memo`](Self::create_memo), this function will not notify dependents of a
+    /// change if the output is the same.
     ///
-    /// It takes a comparison function to compare the old and new value, which returns `true` if they
-    /// are the same and `false` otherwise.
+    /// It takes a comparison function to compare the old and new value, which returns `true` if
+    /// they are the same and `false` otherwise.
     ///
     /// To use the type's [`PartialEq`] implementation instead of a custom function, use
     /// [`create_selector`](Self::create_selector).
@@ -84,7 +111,8 @@ impl<'a> Scope<'a> {
         signal.get().unwrap()
     }
 
-    /// An alternative to [`create_signal`](Self::create_signal) that uses a reducer to get the next value.
+    /// An alternative to [`create_signal`](Self::create_signal) that uses a reducer to get the next
+    /// value.
     ///
     /// It uses a reducer function that takes the previous value and a message and returns the next
     /// value.
@@ -93,7 +121,8 @@ impl<'a> Scope<'a> {
     ///
     /// # Params
     /// * `initial` - The initial value of the state.
-    /// * `reducer` - A function that takes the previous value and a message and returns the next value.
+    /// * `reducer` - A function that takes the previous value and a message and returns the next
+    ///   value.
     ///
     /// # Example
     /// ```
@@ -139,13 +168,11 @@ mod tests {
     fn memo() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
-
             let double = ctx.create_memo(|| *state.get() * 2);
-            assert_eq!(*double.get(), 0);
 
+            assert_eq!(*double.get(), 0);
             state.set(1);
             assert_eq!(*double.get(), 2);
-
             state.set(2);
             assert_eq!(*double.get(), 4);
         });
@@ -162,8 +189,8 @@ mod tests {
                 counter.set(*counter.get_untracked() + 1);
                 *state.get() * 2
             });
-            assert_eq!(*counter.get(), 1); // once for calculating initial derived state
 
+            assert_eq!(*counter.get(), 1); // once for calculating initial derived state
             state.set(2);
             assert_eq!(*counter.get(), 2);
             assert_eq!(*double.get(), 4);
@@ -175,13 +202,10 @@ mod tests {
     fn dependency_on_memo() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
-
             let double = ctx.create_memo(|| *state.get() * 2);
-
             let quadruple = ctx.create_memo(|| *double.get() * 2);
 
             assert_eq!(*quadruple.get(), 0);
-
             state.set(1);
             assert_eq!(*quadruple.get(), 4);
         });
@@ -191,13 +215,12 @@ mod tests {
     fn untracked_memo() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(1);
-
             let double = ctx.create_memo(|| *state.get_untracked() * 2);
 
             assert_eq!(*double.get(), 2);
-
             state.set(2);
-            assert_eq!(*double.get(), 2); // double value should still be true because state.get() was
+            assert_eq!(*double.get(), 2); // double value should still be true because state.get()
+                                          // was
                                           // inside untracked
         });
     }
@@ -206,7 +229,6 @@ mod tests {
     fn selector() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
-
             let double = ctx.create_selector(|| *state.get() * 2);
 
             let counter = ctx.create_signal(0);
@@ -246,7 +268,6 @@ mod tests {
             assert_eq!(*state.get(), 1);
             dispatch(Msg::Decrement);
             assert_eq!(*state.get(), 0);
-
             dispatch(Msg::Increment);
             dispatch(Msg::Increment);
             assert_eq!(*state.get(), 2);
@@ -265,7 +286,6 @@ mod tests {
                 Msg::Increment => *state + 1,
                 Msg::Decrement => *state - 1,
             });
-
             let doubled = ctx.create_memo(|| *state.get() * 2);
 
             assert_eq!(*doubled.get(), 0);

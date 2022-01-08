@@ -38,8 +38,8 @@ pub struct Scope<'a> {
 }
 
 impl<'a> Scope<'a> {
-    /// Create a new [`Scope`]. This function is deliberately not `pub` because it should not be possible to
-    /// access a [`Scope`] directly on the stack.
+    /// Create a new [`Scope`]. This function is deliberately not `pub` because it should not be
+    /// possible to access a [`Scope`] directly on the stack.
     pub(crate) fn new() -> Self {
         Self {
             effects: Default::default(),
@@ -100,7 +100,8 @@ impl<'a> Scope<'a> {
         self.signals.borrow_mut().push(ptr);
         // SAFETY: the address of the Signal<T> lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
-        // - self.signals is append only. That means that the Box<Signal<T>> will not be dropped until Self is dropped.
+        // - self.signals is append only. That means that the Box<Signal<T>> will not be dropped
+        //   until Self is dropped.
         unsafe { &*ptr }
     }
 
@@ -112,7 +113,8 @@ impl<'a> Scope<'a> {
         self.refs.borrow_mut().push(ptr);
         // SAFETY: the address of the ref lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
-        // - self.signals is append only. That means that the Box<_> will not be dropped until Self is dropped.
+        // - self.signals is append only. That means that the Box<_> will not be dropped until Self
+        //   is dropped.
         unsafe { &*ptr }
     }
 
@@ -122,6 +124,35 @@ impl<'a> Scope<'a> {
     }
 
     /// Create a child scope.
+    ///
+    /// Returns a disposer function which will release the memory owned by the [`Scope`]. If the
+    /// disposer function is never called, the child scope will be disposed automatically when the
+    /// parent scope is disposed.
+    ///
+    /// # Lifetime of the child scope
+    ///
+    /// The lifetime of the child scope is strictly a subset of the lifetime of the parent scope.
+    /// ```txt
+    /// [------------'a-------------]
+    ///      [---------'b--------]
+    /// 'a: lifetime of parent
+    /// 'b: lifetime of child
+    /// ```
+    /// If the disposer is never called, the lifetime `'b` lasts as long as `'a`.
+    /// As such, it is impossible for anything allocated in the child scope to escape into the parent scope.
+    /// 
+    /// ```compile_fail
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// let mut outer = None;
+    /// let disposer = ctx.create_child_scope(|ctx| {
+    ///     outer = Some(ctx);
+    /// //               ^^^
+    /// });
+    /// disposer();
+    /// let _ = outer.unwrap();
+    /// # });
+    /// ```
     pub fn create_child_scope<'b, F>(&'a self, f: F) -> impl FnOnce() + 'a
     where
         'a: 'b,
@@ -139,19 +170,22 @@ impl<'a> Scope<'a> {
             .insert(unsafe { std::mem::transmute(ptr) });
         // SAFETY: the address of the Ctx lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
-        // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until Self is dropped.
+        // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until
+        //   Self is dropped.
         f(unsafe { &*ptr });
         move || {
             let ctx = self.child_ctx.borrow_mut().remove(key).unwrap();
-            // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer than 'a.
+            // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer
+            // than 'a.
             let ctx = unsafe { Box::from_raw(ctx) };
             ctx.dispose();
         }
     }
 
-    /// Cleanup the resources owned by the [`Scope`]. This is not automatically called in [`Drop`] because that
-    /// would violate Rust's aliasing rules. However, [`dispose`](Self::dispose) only needs to take `&self`
-    /// instead of `&mut self`. Dropping a [`Scope`] will automatically call [`dispose`](Self::dispose).
+    /// Cleanup the resources owned by the [`Scope`]. This is not automatically called in [`Drop`]
+    /// because that would violate Rust's aliasing rules. However, [`dispose`](Self::dispose)
+    /// only needs to take `&self` instead of `&mut self`. Dropping a [`Scope`] will
+    /// automatically call [`dispose`](Self::dispose).
     ///
     /// If a [`Scope`] has already been disposed, calling it again does nothing.
     pub(crate) fn dispose(&self) {
@@ -195,7 +229,7 @@ impl Drop for Scope<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{create_scope_immediate, create_scope};
+    use crate::{create_scope, create_scope_immediate};
 
     #[test]
     fn refs() {

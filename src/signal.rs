@@ -13,7 +13,8 @@ type EffectCallbackPtr<'a> = *const RefCell<dyn FnMut() + 'a>;
 pub struct SignalEmitter<'a>(RefCell<IndexMap<EffectCallbackPtr<'a>, WeakEffectCallback<'a>>>);
 
 impl<'a> SignalEmitter<'a> {
-    /// Adds a callback to the subscriber list. If the callback is already a subscriber, does nothing.
+    /// Adds a callback to the subscriber list. If the callback is already a subscriber, does
+    /// nothing.
     pub(crate) fn subscribe(&self, cb: WeakEffectCallback<'a>) {
         self.0.borrow_mut().insert(cb.as_ptr(), cb);
     }
@@ -105,7 +106,8 @@ impl<'a, T> ReadSignal<'a, T> {
         self.value.borrow().clone()
     }
 
-    /// Creates a mapped [`ReadSignal`]. This is equivalent to using [`create_memo`](Scope::create_memo).
+    /// Creates a mapped [`ReadSignal`]. This is equivalent to using
+    /// [`create_memo`](Scope::create_memo).
     ///
     /// # Example
     /// ```rust
@@ -124,7 +126,8 @@ impl<'a, T> ReadSignal<'a, T> {
         ctx.create_memo(move || f(&self.get()))
     }
 
-    /// When called inside a reactive scope, calling this will add itself to the scope's dependencies.
+    /// When called inside a reactive scope, calling this will add itself to the scope's
+    /// dependencies.
     ///
     /// To both track and get the value of the signal, use [`ReadSignal::get`] instead.
     pub fn track(&self) {
@@ -182,7 +185,8 @@ impl<'a, T: Default> Signal<'a, T> {
         ret
     }
 
-    /// Take the current value out and replace it with the default value _without_ triggering subscribers.
+    /// Take the current value out and replace it with the default value _without_ triggering
+    /// subscribers.
     ///
     /// Make sure you know what you are doing because this can make state inconsistent.
     pub fn take_silent(&self) -> Rc<T> {
@@ -206,12 +210,14 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {}
 /// A signal that is not bound to a [`Scope`].
 ///
 /// Sometimes, it is useful to have a signal that can escape the enclosing [reactive scope](Scope).
-/// However, this cannot be achieved simply with [`Scope::create_signal`] because the resulting [`Signal`]
-/// is tied to the [`Scope`] by it's lifetime. The [`Signal`] can only live as long as the [`Scope`].
+/// However, this cannot be achieved simply with [`Scope::create_signal`] because the resulting
+/// [`Signal`] is tied to the [`Scope`] by it's lifetime. The [`Signal`] can only live as long as
+/// the [`Scope`].
 ///
-/// With [`RcSignal`] on the other hand, the lifetime is not tied to a [`Scope`]. Memory is managed using a
-/// reference-counted smart pointer ([`Rc`]). What this means is that [`RcSignal`] cannot implement the [`Copy`]
-/// trait and therefore needs to be manually cloned into all closures where it is used.
+/// With [`RcSignal`] on the other hand, the lifetime is not tied to a [`Scope`]. Memory is managed
+/// using a reference-counted smart pointer ([`Rc`]). What this means is that [`RcSignal`] cannot
+/// implement the [`Copy`] trait and therefore needs to be manually cloned into all closures where
+/// it is used.
 ///
 /// In general, [`Scope::create_signal`] should be preferred, both for performance and ergonomics.
 ///

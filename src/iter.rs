@@ -15,8 +15,8 @@ impl<'a> Scope<'a> {
     /// This function is the underlying utility behind `Keyed`.
     ///
     /// # Params
-    /// * `list` - The list to be mapped. The list must be a [`ReadSignal`] (obtained from a [`Signal`])
-    ///   and therefore reactive.
+    /// * `list` - The list to be mapped. The list must be a [`ReadSignal`] (obtained from a
+    ///   [`Signal`]) and therefore reactive.
     /// * `map_fn` - A closure that maps from the input type to the output type.
     /// * `key_fn` - A closure that returns an _unique_ key to each entry.
     ///
@@ -193,13 +193,14 @@ impl<'a> Scope<'a> {
     /// computed, meaning that it's value will only be updated when requested. Modifications to the
     /// input `Vec` are diffed by index to prevent recomputing values that have not changed.
     ///
-    /// Generally, it is preferred to use [`map_keyed`](Self::map_keyed) instead when a key function is available.
+    /// Generally, it is preferred to use [`map_keyed`](Self::map_keyed) instead when a key function
+    /// is available.
     ///
     /// This function is the underlying utility behind `Indexed`.
     ///
     /// # Params
-    /// * `list` - The list to be mapped. The list must be a [`ReadSignal`] (obtained from a [`Signal`])
-    ///   and therefore reactive.
+    /// * `list` - The list to be mapped. The list must be a [`ReadSignal`] (obtained from a
+    ///   [`Signal`]) and therefore reactive.
     /// * `map_fn` - A closure that maps from the input type to the output type.
     pub fn map_indexed<T, U>(
         &'a self,

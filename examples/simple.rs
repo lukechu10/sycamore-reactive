@@ -8,7 +8,8 @@ fn main() {
             println!(
                 "data value changed. new value = {}, doubled value = {}",
                 data.get(),
-                doubled.get_untracked() // FIXME: using get will cause effect to be called twice when data is updated
+                doubled.get_untracked() /* FIXME: using get will cause effect to be called twice
+                                         * when data is updated */
             )
         });
         data.set(1);
