@@ -215,7 +215,7 @@ mod tests {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
             ctx.create_effect(|| {
-                state.get();
+                state.track();
                 state.set(0);
             });
             state.set(0);
@@ -231,9 +231,9 @@ mod tests {
             ctx.create_effect(|| {
                 counter.set(*counter.get_untracked() + 1);
 
-                // call state.get() twice but should subscribe once
-                state.get();
-                state.get();
+                // call state.track() twice but should subscribe once
+                state.track();
+                state.track();
             });
 
             assert_eq!(*counter.get(), 1);
@@ -256,9 +256,9 @@ mod tests {
                 counter.set(*counter.get_untracked() + 1);
 
                 if *condition.get() {
-                    state1.get();
+                    state1.track();
                 } else {
-                    state2.get();
+                    state2.track();
                 }
             });
 
@@ -290,11 +290,11 @@ mod tests {
             let inner_counter = ctx.create_signal(0);
 
             ctx.create_effect_scoped(|ctx| {
-                trigger.get(); // subscribe to trigger
+                trigger.track();
                 outer_counter.set(*outer_counter.get_untracked() + 1);
 
                 ctx.create_effect(|| {
-                    trigger.get(); // subscribe to trigger
+                    trigger.track();
                     inner_counter.set(*inner_counter.get_untracked() + 1);
                 });
             });
@@ -318,7 +318,7 @@ mod tests {
 
             let disposer = ctx.create_child_scope(|ctx| {
                 ctx.create_effect(|| {
-                    trigger.get(); // subscribe to trigger
+                    trigger.track();
                     counter.set(*counter.get_untracked() + 1);
                 });
             });
@@ -340,7 +340,7 @@ mod tests {
             let trigger = ctx.create_signal(());
             let parent = ctx.create_signal(None);
             ctx.create_effect_scoped(|ctx| {
-                trigger.get(); // subscribe to trigger
+                trigger.track();
                 let p = ctx.parent.unwrap();
                 parent.set(Some(p));
             });

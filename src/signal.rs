@@ -66,7 +66,7 @@ pub struct ReadSignal<'a, T> {
 }
 
 impl<'a, T> ReadSignal<'a, T> {
-    // Get the current value of the state. When called inside a reactive scope, calling this will
+    /// Get the current value of the state. When called inside a reactive scope, calling this will
     /// add itself to the scope's dependencies.
     ///
     /// # Example
@@ -80,6 +80,7 @@ impl<'a, T> ReadSignal<'a, T> {
     /// assert_eq!(*state.get(), 1);
     /// # });
     /// ```
+    #[must_use = "to only subscribe the signal without using the value, use .track() instead"]
     pub fn get(&self) -> Rc<T> {
         self.emitter.track();
         self.value.borrow().clone()
@@ -102,6 +103,7 @@ impl<'a, T> ReadSignal<'a, T> {
     /// assert_eq!(*double.get(), 2);
     /// # });
     /// ```
+    #[must_use = "discarding the returned value does nothing"]
     pub fn get_untracked(&self) -> Rc<T> {
         self.value.borrow().clone()
     }
@@ -120,8 +122,16 @@ impl<'a, T> ReadSignal<'a, T> {
     /// assert_eq!(*double.get(), 4);
     /// # });
     /// ```
+    #[must_use]
     pub fn map<U>(&self, ctx: ScopeRef<'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
         ctx.create_memo(move || f(&self.get()))
+    }
+
+    /// When called inside a reactive scope, calling this will add itself to the scope's dependencies.
+    /// 
+    /// To both track and get the value of the signal, use [`Signal::get`] instead.
+    pub fn track(&self) {
+        self.emitter.track();
     }
 }
 
