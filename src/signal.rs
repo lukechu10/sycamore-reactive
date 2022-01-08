@@ -201,32 +201,10 @@ impl<'a, T> Deref for Signal<'a, T> {
     }
 }
 
-pub(crate) trait AnySignal<'a> {
-    /// Subscribe the effect to the signal.
-    fn subscribe(&self, cb: WeakEffectCallback<'a>);
-    /// Unsubscribe the effect from the signal.
-    fn unsubscribe(&self, cb: EffectCallbackPtr<'a>);
-}
-
-impl<'a, T> AnySignal<'a> for Signal<'a, T> {
-    fn subscribe(&self, cb: WeakEffectCallback<'a>) {
-        self.emitter.subscribe(cb);
-    }
-
-    fn unsubscribe(&self, cb: EffectCallbackPtr<'a>) {
-        self.emitter.unsubscribe(cb);
-    }
-}
-
-impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {
-    fn subscribe(&self, cb: WeakEffectCallback<'a>) {
-        self.emitter.subscribe(cb);
-    }
-
-    fn unsubscribe(&self, cb: EffectCallbackPtr<'a>) {
-        self.emitter.unsubscribe(cb);
-    }
-}
+/// A trait that is implemented for all signals that are allocated on a [`Scope`].
+pub(crate) trait AnySignal<'a> {}
+impl<'a, T> AnySignal<'a> for Signal<'a, T> {}
+impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {}
 
 /// A signal that is not bound to a [`Scope`].
 ///
