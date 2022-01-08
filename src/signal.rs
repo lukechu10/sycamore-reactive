@@ -126,7 +126,7 @@ impl<'a, T> ReadSignal<'a, T> {
 
     /// When called inside a reactive scope, calling this will add itself to the scope's dependencies.
     ///
-    /// To both track and get the value of the signal, use [`Signal::get`] instead.
+    /// To both track and get the value of the signal, use [`ReadSignal::get`] instead.
     pub fn track(&self) {
         self.emitter.track();
     }

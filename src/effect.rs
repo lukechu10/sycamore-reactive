@@ -58,7 +58,7 @@ impl<'a> Scope<'a> {
     /// # create_scope_immediate(|ctx| {
     /// let state = ctx.create_signal(0);
     ///
-    /// ctx.create_effect(move || {
+    /// ctx.create_effect(|| {
     ///     println!("State changed. New state value = {}", state.get());
     /// }); // Prints "State changed. New state value = 0"
     ///
@@ -126,6 +126,24 @@ impl<'a> Scope<'a> {
         self.effects.borrow_mut().push(effect);
     }
 
+    /// Creates an effect on signals used inside the effect closure.
+    /// 
+    /// Instead of [`create_effect`](Self::create_effect), this function also provides a new reactive scope
+    /// instead the effect closure. This scope is created for each new run of the effect.
+    /// 
+    /// Items created within the scope cannot escape outside the effect because that can result in an use-after-free.
+    ///
+    /// # Example
+    /// ```
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// ctx.create_effect_scoped(|ctx| {
+    ///     // Use the scoped ctx inside here.
+    ///     let _nested_signal = ctx.create_signal(0);
+    ///     // _nested_signal cannot escape out of the effect closure.
+    /// });
+    /// # });
+    /// ```
     pub fn create_effect_scoped<'b>(&'a self, mut f: impl FnMut(ScopeRef<'b>) + 'a)
     where
         'a: 'b,

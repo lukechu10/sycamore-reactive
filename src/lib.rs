@@ -1,5 +1,7 @@
 //! Reactive primitives for Sycamore.
 
+#![warn(missing_docs)]
+
 pub mod effect;
 pub mod iter;
 pub mod memo;
