@@ -333,4 +333,28 @@ mod tests {
             assert_eq!(*counter.get(), 2); // inner effect should be destroyed and thus not executed
         });
     }
+
+    #[test]
+    fn effect_preserves_scope_hierarchy() {
+        create_scope_immediate(|ctx| {
+            let trigger = ctx.create_signal(());
+            let parent = ctx.create_signal(None);
+            ctx.create_effect_scoped(|ctx| {
+                trigger.get(); // subscribe to trigger
+                let p = ctx.parent.unwrap();
+                parent.set(Some(p));
+            });
+            assert_eq!(
+                parent.get().unwrap(),
+                ctx as *const _,
+                "the parent scope of the effect should be `ctx`"
+            );
+            trigger.set(());
+            assert_eq!(
+                parent.get().unwrap(),
+                ctx as *const _,
+                "the parent should still be `ctx` after effect is re-executed"
+            );
+        });
+    }
 }
