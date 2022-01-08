@@ -14,6 +14,10 @@ use std::rc::{Rc, Weak};
 use indexmap::IndexMap;
 use slotmap::{DefaultKey, SlotMap};
 
+/// A trait that is implemented for everything.
+trait ReallyAny {}
+impl<T> ReallyAny for T {}
+
 /// A reactive scope.
 ///
 /// The only way to ever use a scope should be behind a reference.
@@ -26,8 +30,8 @@ pub struct Scope<'a> {
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
     child_ctx: RefCell<SlotMap<DefaultKey, *mut Scope<'a>>>,
-    // Ctx owns the raw pointers in the Vec.
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
+    refs: RefCell<Vec<*mut (dyn ReallyAny + 'a)>>,
     parent: Option<*const Self>,
 }
 
@@ -40,6 +44,7 @@ impl<'a> Scope<'a> {
             cleanups: Default::default(),
             child_ctx: Default::default(),
             signals: Default::default(),
+            refs: Default::default(),
             parent: None,
         }
     }
@@ -85,7 +90,7 @@ pub fn create_scope_immediate(f: impl FnOnce(ScopeRef<'_>)) {
 
 impl<'a> Scope<'a> {
     /// Create a new [`Signal`] under the current [`Scope`].
-    /// The created signal lasts as long as the context and cannot be used outside of the context.
+    /// The created signal lasts as long as the scope and cannot be used outside of the scope.
     pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'a, T> {
         let signal = Signal::new(value);
         let boxed = Box::new(signal);
@@ -94,6 +99,18 @@ impl<'a> Scope<'a> {
         // SAFETY: the address of the Signal<T> lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
         // - self.signals is append only. That means that the Box<Signal<T>> will not be dropped until Self is dropped.
+        unsafe { &*ptr }
+    }
+
+    /// Allocate a new arbitrary value under the current [`Scope`].
+    /// The allocated value lasts as long as the scope and cannot be used outside of the scope.
+    pub fn create_ref<T: 'a>(&'a self, value: T) -> &'a T {
+        let boxed = Box::new(value);
+        let ptr = Box::into_raw(boxed);
+        self.refs.borrow_mut().push(ptr);
+        // SAFETY: the address of the ref lives as long as 'a because:
+        // - It is allocated on the heap and therefore has a stable address.
+        // - self.signals is append only. That means that the Box<_> will not be dropped until Self is dropped.
         unsafe { &*ptr }
     }
 
@@ -158,6 +175,13 @@ impl<'a> Scope<'a> {
                 drop(Box::from_raw(i));
             }
         }
+        // Drop refs.
+        for i in self.refs.take() {
+            // SAFETY: These pointers were allocated in Self::create_ref.
+            unsafe {
+                drop(Box::from_raw(i));
+            }
+        }
     }
 }
 
@@ -169,7 +193,19 @@ impl Drop for Scope<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::create_scope_immediate;
+    use crate::{create_scope_immediate, create_scope};
+
+    #[test]
+    fn refs() {
+        let disposer = create_scope(|ctx| {
+            let r = ctx.create_ref(0);
+            ctx.on_cleanup(move || {
+                let _ = r; // r can be accessed inside scope here.
+                dbg!(r);
+            })
+        });
+        disposer();
+    }
 
     #[test]
     fn cleanup() {
