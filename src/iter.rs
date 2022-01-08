@@ -50,6 +50,7 @@ impl<'a> Scope<'a> {
                 mapped = Vec::new();
             } else if items.is_empty() {
                 // Fast path for new create.
+                // TODO: do not clone T
                 for new_item in new_items.iter().cloned() {
                     let tmp = Rc::new(RefCell::new(None));
                     let new_disposer = self.create_child_scope({
