@@ -166,6 +166,13 @@ impl<'a, T> Signal<'a, T> {
         *self.0.value.borrow_mut() = Rc::new(value);
         self.0.emitter.trigger_subscribers();
     }
+
+    /// Set the current value of the state _without_ triggering subscribers.
+    ///
+    /// Make sure you know what you are doing because this can make state inconsistent.
+    pub fn set_silent(&self, value: T) {
+        *self.0.value.borrow_mut() = Rc::new(value);
+    }
 }
 
 impl<'a, T: Default> Signal<'a, T> {
@@ -178,8 +185,10 @@ impl<'a, T: Default> Signal<'a, T> {
         ret
     }
 
-    /// Take the current value out and replace it with the default value.
-    pub fn take_untracked(&self) -> Rc<T> {
+    /// Take the current value out and replace it with the default value _without_ triggering subscribers.
+    ///
+    /// Make sure you know what you are doing because this can make state inconsistent.
+    pub fn take_silent(&self) -> Rc<T> {
         self.0.value.take()
     }
 }
@@ -291,13 +300,23 @@ mod tests {
     fn signal_composition() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);
-
             let double = || *state.get() * 2;
 
             assert_eq!(double(), 0);
-
             state.set(1);
             assert_eq!(double(), 2);
+        });
+    }
+
+    #[test]
+    fn set_silent_signal() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+            let double = state.map(ctx, |&x| x * 2);
+
+            assert_eq!(*double.get(), 0);
+            state.set_silent(1);
+            assert_eq!(*double.get(), 0); // double value is unchanged.
         });
     }
 
@@ -308,9 +327,44 @@ mod tests {
             let readonly: &ReadSignal<i32> = state.deref();
 
             assert_eq!(*readonly.get(), 0);
-
             state.set(1);
             assert_eq!(*readonly.get(), 1);
+        });
+    }
+
+    #[test]
+    fn map_signal() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+            let double = state.map(ctx, |&x| x * 2);
+
+            assert_eq!(*double.get(), 0);
+            state.set(1);
+            assert_eq!(*double.get(), 2);
+        });
+    }
+
+    #[test]
+    fn take_signal() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(123);
+
+            let x = state.take();
+            assert_eq!(*x, 123);
+            assert_eq!(*state.get(), 0);
+        });
+    }
+
+    #[test]
+    fn take_silent_signal() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(123);
+            let double = state.map(ctx, |&x| x * 2);
+
+            // Do not trigger subscribers.
+            state.take_silent();
+            assert_eq!(*state.get(), 0);
+            assert_eq!(*double.get(), 246);
         });
     }
 
