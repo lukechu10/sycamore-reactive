@@ -173,6 +173,25 @@ impl<'a, T> Signal<'a, T> {
     pub fn set_silent(&self, value: T) {
         *self.0.value.borrow_mut() = Rc::new(value);
     }
+
+    /// Split a signal into getter and setter handles.
+    /// 
+    /// # Example
+    /// ```rust
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// let (state, set_state) = ctx.create_signal(0).split();
+    /// assert_eq!(*state(), 0);
+    ///
+    /// set_state(1);
+    /// assert_eq!(*state(), 1);
+    /// # });
+    /// ```
+    pub fn split(&'a self) -> (impl Fn() -> Rc<T> + Copy + 'a, impl Fn(T) + Copy + 'a) {
+        let getter = || self.get();
+        let setter = |x| self.set(x);
+        (getter, setter)
+    }
 }
 
 impl<'a, T: Default> Signal<'a, T> {
