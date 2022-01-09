@@ -2,10 +2,10 @@
 
 #![warn(missing_docs)]
 
-pub mod effect;
-pub mod iter;
-pub mod memo;
-pub mod signal;
+mod effect;
+mod iter;
+mod memo;
+mod signal;
 
 pub use effect::*;
 pub use signal::*;
@@ -60,6 +60,22 @@ pub type ScopeRef<'a> = &'a Scope<'a>;
 /// Returns a disposer function which will release the memory owned by the [`Scope`].
 /// Failure to call the disposer function will result in a memory leak.
 ///
+/// # Scope lifetime
+///
+/// The lifetime of the child scope is arbitrary. As such, it is impossible for anything allocated
+/// in the scope to escape out of the scope because it is possible for the scope lifetime to be
+/// longer than outside.
+/// 
+/// ```compile_fail
+/// # use sycamore_reactive::*;
+/// let mut outer = None;
+/// # let disposer = 
+/// create_scope(|ctx| {
+///     outer = Some(ctx);
+/// });
+/// # disposer();
+/// ```
+///
 /// # Examples
 ///
 /// ```
@@ -70,7 +86,7 @@ pub type ScopeRef<'a> = &'a Scope<'a>;
 /// disposer();
 /// ```
 #[must_use = "not calling the disposer function will result in a memory leak"]
-pub fn create_scope(f: impl FnOnce(ScopeRef<'_>)) -> impl FnOnce() {
+pub fn create_scope(f: impl for<'a> FnOnce(ScopeRef<'a>)) -> impl FnOnce() {
     let ctx = Scope::new();
     let boxed = Box::new(ctx);
     let ptr = Box::into_raw(boxed);
@@ -81,7 +97,9 @@ pub fn create_scope(f: impl FnOnce(ScopeRef<'_>)) -> impl FnOnce() {
         // SAFETY: Safe because ptr created using Box::into_raw.
         let boxed = unsafe { Box::from_raw(ptr) };
         // SAFETY: Outside of call to f.
-        unsafe { boxed.dispose(); }
+        unsafe {
+            boxed.dispose();
+        }
     }
 }
 
@@ -130,7 +148,7 @@ impl<'a> Scope<'a> {
     /// disposer function is never called, the child scope will be disposed automatically when the
     /// parent scope is disposed.
     ///
-    /// # Lifetime of the child scope
+    /// # Child scope lifetime
     ///
     /// The lifetime of the child scope is strictly a subset of the lifetime of the parent scope.
     /// ```txt
@@ -254,7 +272,7 @@ mod tests {
         create_scope_immediate(|ctx| {
             let cleanup_called = ctx.create_signal(false);
             let disposer = ctx.create_child_scope(|ctx| {
-                ctx.on_cleanup(move || {
+                ctx.on_cleanup(|| {
                     cleanup_called.set(true);
                 });
             });
