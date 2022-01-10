@@ -4,7 +4,7 @@ use std::cell::Cell;
 
 use crate::*;
 
-impl<'a> Scope<'a> {
+impl<'id, 'a> Scope<'id, 'a> {
     /// Creates a memoized computation from some signals.
     /// The output is derived from all the signals that are used within the memo closure.
     /// If any of the tracked signals are updated, the memo is also updated.

@@ -11,6 +11,7 @@ pub use effect::*;
 pub use signal::*;
 
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
 
 use indexmap::IndexMap;
@@ -20,6 +21,10 @@ use slotmap::{DefaultKey, SlotMap};
 trait ReallyAny {}
 impl<T> ReallyAny for T {}
 
+/// A wrapper type around a lifetime that forces the lifetime to be invariant.
+#[derive(Debug, Default)]
+struct InvariantLifetime<'id>(PhantomData<&'id mut &'id ()>);
+
 /// A reactive scope.
 ///
 /// The only way to ever use a scope should be behind a reference.
@@ -28,16 +33,18 @@ impl<T> ReallyAny for T {}
 /// The intended way to access a [`Scope`] is with the [`create_scope`] function.
 ///
 /// For convenience, the [`ScopeRef`] type alias is defined as a reference to a [`Scope`].
-pub struct Scope<'a> {
+pub struct Scope<'id, 'a> {
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
-    child_ctx: RefCell<SlotMap<DefaultKey, *mut Scope<'a>>>,
+    child_ctx: RefCell<SlotMap<DefaultKey, *mut Scope<'id, 'a>>>,
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
     refs: RefCell<Vec<*mut (dyn ReallyAny + 'a)>>,
     parent: Option<*const Self>,
+    _phantom1: InvariantLifetime<'id>,
+    _phantom2: InvariantLifetime<'a>,
 }
 
-impl<'a> Scope<'a> {
+impl<'id, 'a> Scope<'id, 'a> {
     /// Create a new [`Scope`]. This function is deliberately not `pub` because it should not be
     /// possible to access a [`Scope`] directly on the stack.
     pub(crate) fn new() -> Self {
@@ -48,12 +55,14 @@ impl<'a> Scope<'a> {
             signals: Default::default(),
             refs: Default::default(),
             parent: None,
+            _phantom1: Default::default(),
+            _phantom2: Default::default(),
         }
     }
 }
 
 /// A reference to a [`Scope`].
-pub type ScopeRef<'a> = &'a Scope<'a>;
+pub type ScopeRef<'id, 'a> = &'a Scope<'id, 'a>;
 
 /// Creates a reactive scope.
 ///
@@ -65,11 +74,11 @@ pub type ScopeRef<'a> = &'a Scope<'a>;
 /// The lifetime of the child scope is arbitrary. As such, it is impossible for anything allocated
 /// in the scope to escape out of the scope because it is possible for the scope lifetime to be
 /// longer than outside.
-/// 
+///
 /// ```compile_fail
 /// # use sycamore_reactive::*;
 /// let mut outer = None;
-/// # let disposer = 
+/// # let disposer =
 /// create_scope(|ctx| {
 ///     outer = Some(ctx);
 /// });
@@ -86,7 +95,7 @@ pub type ScopeRef<'a> = &'a Scope<'a>;
 /// disposer();
 /// ```
 #[must_use = "not calling the disposer function will result in a memory leak"]
-pub fn create_scope(f: impl for<'a> FnOnce(ScopeRef<'a>)) -> impl FnOnce() {
+pub fn create_scope(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) -> impl FnOnce() {
     let ctx = Scope::new();
     let boxed = Box::new(ctx);
     let ptr = Box::into_raw(boxed);
@@ -104,12 +113,12 @@ pub fn create_scope(f: impl for<'a> FnOnce(ScopeRef<'a>)) -> impl FnOnce() {
 }
 
 /// Creates a reactive scope, runs the callback, and disposes the scope immediately.
-pub fn create_scope_immediate(f: impl FnOnce(ScopeRef<'_>)) {
+pub fn create_scope_immediate(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) {
     let disposer = create_scope(f);
     disposer();
 }
 
-impl<'a> Scope<'a> {
+impl<'id, 'a> Scope<'id, 'a> {
     /// Create a new [`Signal`] under the current [`Scope`].
     /// The created signal lasts as long as the scope and cannot be used outside of the scope.
     pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'a, T> {
@@ -160,8 +169,7 @@ impl<'a> Scope<'a> {
     /// If the disposer is never called, the lifetime `'b` lasts as long as `'a`.
     /// As such, it is impossible for anything allocated in the child scope to escape into the
     /// parent scope.
-    // TODO: should be compile_fail
-    /// ```
+    /// ```compile_fail
     /// # use sycamore_reactive::*;
     /// # create_scope_immediate(|ctx| {
     /// let mut outer = None;
@@ -176,7 +184,7 @@ impl<'a> Scope<'a> {
     pub fn create_child_scope<'b, F>(&'a self, f: F) -> impl FnOnce() + 'a
     where
         'a: 'b,
-        F: FnOnce(ScopeRef<'b>),
+        F: for<'child_id> FnOnce(ScopeRef<'child_id, 'b>),
     {
         let mut ctx: Scope = Scope::new();
         // SAFETY: TODO
@@ -188,13 +196,15 @@ impl<'a> Scope<'a> {
             .borrow_mut()
             // SAFETY: TODO
             .insert(unsafe { std::mem::transmute(ptr) });
+
+        let this: &'a Scope<'a, 'a> = unsafe { std::mem::transmute(self) };
         // SAFETY: the address of the Ctx lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
         // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until
         //   Self is dropped.
         f(unsafe { &*ptr });
         move || {
-            let ctx = self.child_ctx.borrow_mut().remove(key).unwrap();
+            let ctx = this.child_ctx.borrow_mut().remove(key).unwrap();
             // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer
             // than 'a.
             let ctx = unsafe { Box::from_raw(ctx) };
@@ -244,7 +254,7 @@ impl<'a> Scope<'a> {
     }
 }
 
-impl Drop for Scope<'_> {
+impl Drop for Scope<'_, '_> {
     fn drop(&mut self) {
         // SAFETY: scope cannot be dropped while it is borrowed inside closure.
         unsafe { self.dispose() };

@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use crate::*;
 
-impl<'a> Scope<'a> {
+impl<'id, 'a> Scope<'id, 'a> {
     /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
     /// computed, meaning that it's value will only be updated when requested. Modifications to the
     /// input `Vec` are diffed using keys to prevent recomputing values that have not changed.
@@ -24,7 +24,7 @@ impl<'a> Scope<'a> {
     pub fn map_keyed<T, K, U>(
         &'a self,
         list: &'a ReadSignal<'a, Vec<T>>,
-        map_fn: impl Fn(ScopeRef<'_>, &T) -> U + 'a,
+        map_fn: impl Fn(ScopeRef<'_, '_>, &T) -> U + 'a,
         key_fn: impl Fn(&T) -> K + 'a,
     ) -> &'a ReadSignal<'a, Vec<U>>
     where
@@ -206,7 +206,7 @@ impl<'a> Scope<'a> {
     pub fn map_indexed<T, U>(
         &'a self,
         list: &'a ReadSignal<'a, Vec<T>>,
-        map_fn: impl Fn(ScopeRef<'_>, &T) -> U + 'a,
+        map_fn: impl Fn(ScopeRef<'_, '_>, &T) -> U + 'a,
     ) -> &'a ReadSignal<'a, Vec<U>>
     where
         T: PartialEq + Clone,

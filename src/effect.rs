@@ -49,7 +49,7 @@ impl<'a> EffectState<'a> {
     }
 }
 
-impl<'a> Scope<'a> {
+impl<'id, 'a> Scope<'id, 'a> {
     /// Creates an effect on signals used inside the effect closure.
     ///
     /// # Example
@@ -75,7 +75,8 @@ impl<'a> Scope<'a> {
                 EFFECTS.with(|effects| {
                     // Record initial effect stack length to verify that it is the same after.
                     let initial_effect_stack_len = effects.borrow().len();
-                    // Upgrade the effect to an Rc now so that it is valid for the rest of the callback.
+                    // Upgrade the effect to an Rc now so that it is valid for the rest of the
+                    // callback.
                     let effect_ref = effect.upgrade().unwrap();
 
                     // Take effect out.
@@ -127,11 +128,13 @@ impl<'a> Scope<'a> {
     }
 
     /// Creates an effect on signals used inside the effect closure.
-    /// 
-    /// Instead of [`create_effect`](Self::create_effect), this function also provides a new reactive scope
-    /// instead the effect closure. This scope is created for each new run of the effect.
-    /// 
-    /// Items created within the scope cannot escape outside the effect because that can result in an use-after-free.
+    ///
+    /// Instead of [`create_effect`](Self::create_effect), this function also provides a new
+    /// reactive scope instead the effect closure. This scope is created for each new run of the
+    /// effect.
+    ///
+    /// Items created within the scope cannot escape outside the effect because that can result in
+    /// an use-after-free.
     ///
     /// # Example
     /// ```
@@ -144,9 +147,10 @@ impl<'a> Scope<'a> {
     /// });
     /// # });
     /// ```
-    pub fn create_effect_scoped<'b>(&'a self, mut f: impl FnMut(ScopeRef<'b>) + 'a)
+    pub fn create_effect_scoped<'b, F>(&'a self, mut f: F)
     where
         'a: 'b,
+        F: for<'child_id> FnMut(ScopeRef<'child_id, 'b>) + 'a,
     {
         let mut disposer: Option<Box<dyn FnOnce()>> = None;
         self.create_effect(move || {
@@ -158,9 +162,12 @@ impl<'a> Scope<'a> {
             // This is a bug with clippy because f cannot be moved out of the closure.
             #[allow(clippy::redundant_closure)]
             let new_disposer: Option<Box<dyn FnOnce()>> =
-                Some(Box::new(self.create_child_scope(|ctx| f(ctx))));
-            // SAFETY: transmute the lifetime. This is safe because disposer is only used within the effect which is
-            // necessarily within the lifetime of self (the Scope).
+                Some(Box::new(self.create_child_scope(|ctx| {
+                    // SAFETY: TODO
+                    f(unsafe { std::mem::transmute(ctx) })
+                })));
+            // SAFETY: transmute the lifetime. This is safe because disposer is only used within the
+            // effect which is necessarily within the lifetime of self (the Scope).
             disposer = unsafe { std::mem::transmute(new_disposer) };
         });
     }
@@ -345,21 +352,21 @@ mod tests {
     fn effect_preserves_scope_hierarchy() {
         create_scope_immediate(|ctx| {
             let trigger = ctx.create_signal(());
-            let parent = ctx.create_signal(None);
+            let parent: &Signal<Option<*const ()>> = ctx.create_signal(None);
             ctx.create_effect_scoped(|ctx| {
                 trigger.track();
                 let p = ctx.parent.unwrap();
-                parent.set(Some(p));
+                parent.set(Some(p as *const ()));
             });
             assert_eq!(
                 parent.get().unwrap(),
-                ctx as *const _,
+                ctx as *const _ as *const (),
                 "the parent scope of the effect should be `ctx`"
             );
             trigger.set(());
             assert_eq!(
                 parent.get().unwrap(),
-                ctx as *const _,
+                ctx as *const _ as *const (),
                 "the parent should still be `ctx` after effect is re-executed"
             );
         });

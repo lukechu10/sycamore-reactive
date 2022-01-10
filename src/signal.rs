@@ -122,7 +122,7 @@ impl<'a, T> ReadSignal<'a, T> {
     /// # });
     /// ```
     #[must_use]
-    pub fn map<U>(&self, ctx: ScopeRef<'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
+    pub fn map<U>(&self, ctx: ScopeRef<'_, 'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
         ctx.create_memo(move || f(&self.get()))
     }
 
