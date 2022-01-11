@@ -34,6 +34,16 @@ struct InvariantLifetime<'id>(PhantomData<&'id mut &'id ()>);
 /// The intended way to access a [`Scope`] is with the [`create_scope`] function.
 ///
 /// For convenience, the [`ScopeRef`] type alias is defined as a reference to a [`Scope`].
+///
+/// # Lifetime
+///
+/// [`Scope`] has two lifetimes.
+/// * `'id` - An unique "brand" lifetime that identifies the scope and all data allocated on it.
+///   This is to ensure that neither the scope, nor the data tied to the scope can escape the
+///   [`create_scope`] closure. This lifetime is invariant.
+/// * `'a` - The actual lifetime of the scope and all data allocated on it. This allows passing in
+///   data from an outer scope into an inner scope. This lifetime is also invariant because it is
+///   used within an cell.
 pub struct Scope<'id, 'a> {
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
@@ -106,19 +116,30 @@ pub fn create_scope(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) -> impl FnOn
     let boxed = Box::new(ctx);
     let ptr = Box::into_raw(boxed);
     // SAFETY: Safe because heap allocated value has stable address.
+    // The reference passed to f cannot possible escape the closure. We know however, that ptr
+    // necessary outlives the closure call because it is only dropped in the returned disposer
+    // closure.
     f(unsafe { &*ptr });
-    // Ownership of the context is passed into the closure.
-    move || {
+    //           ^^^ -> `ptr` is still accessible here.
+
+    // Ownership of `ptr` is passed into the closure.
+    move || unsafe {
         // SAFETY: Safe because ptr created using Box::into_raw.
-        let boxed = unsafe { Box::from_raw(ptr) };
+        let boxed = Box::from_raw(ptr);
         // SAFETY: Outside of call to f.
-        unsafe {
-            boxed.dispose();
-        }
+        boxed.dispose();
     }
 }
 
 /// Creates a reactive scope, runs the callback, and disposes the scope immediately.
+///
+/// Calling this is equivalent to writing:
+/// ```
+/// # use sycamore_reactive::*;
+/// (create_scope(|ctx| {
+///     // ...
+/// }))(); // Call the disposer function immediately
+/// ```
 pub fn create_scope_immediate(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) {
     let disposer = create_scope(f);
     disposer();
@@ -230,6 +251,9 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// Cleanup the resources owned by the [`Scope`]. This is automatically called in [`Drop`]
     /// However, [`dispose`](Self::dispose) only needs to take `&self` instead of `&mut self`.
     /// Dropping a [`Scope`] will automatically call [`dispose`](Self::dispose).
+    ///
+    /// This method will cleanup resources in a certain order such that it is impossible to access a
+    /// dangling-reference within cleanup callbacks and effects etc...
     ///
     /// If a [`Scope`] has already been disposed, calling it again does nothing.
     ///
