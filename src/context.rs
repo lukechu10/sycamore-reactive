@@ -14,7 +14,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     }
 
     /// TODO: docs
-    pub fn use_context<T: 'static>(&'a self) -> Option<&'a T> {
+    pub fn try_use_context<T: 'static>(&'a self) -> Option<DataRef<'id, 'a, T>> {
         let type_id = TypeId::of::<T>();
         let this = Some(self);
         while let Some(current) = this {
@@ -23,10 +23,35 @@ impl<'id, 'a> Scope<'id, 'a> {
                 // - Lifetime of value is 'a if it is allocated on the current scope.
                 // - Lifetime of value is longer than 'a if it is allocated on a parent scope.
                 // - 'a is variant because it is an immutable reference.
-                let value = unsafe { &**value} ;
-                return Some(value.downcast_ref().unwrap());
+                let value = unsafe { &**value };
+                let value = value.downcast_ref::<T>().unwrap();
+                let data = DataRef {
+                    _phantom: InvariantLifetime::default(),
+                    value,
+                };
+                return Some(data);
             }
         }
         None
+    }
+
+    /// TODO: docs
+    #[track_caller]
+    pub fn use_context<T: 'static>(&'a self) -> DataRef<'id, 'a, T> {
+        self.try_use_context().expect("context not found for type")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn context() {
+        create_scope_immediate(|ctx| {
+            ctx.provide_context(42i32);
+            let x = ctx.use_context::<i32>();
+            assert_eq!(*x, 42);
+        });
     }
 }
