@@ -40,10 +40,6 @@ pub(crate) struct ScopeArena<'a> {
 }
 
 impl<'a> ScopeArena<'a> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Allocate a value onto the arena. Returns a reference that lasts as long as the arena itself.
     pub fn alloc<T: 'a>(&'a self, value: T) -> &'a T {
         let boxed = Box::new(value);
@@ -64,15 +60,26 @@ impl<'a> ScopeArena<'a> {
         //   create a stacked-borrows violation.
         unsafe { &*ptr }
     }
+
+    /// Cleanup the resources owned by the [`ScopeArena`]. This is automatically called in [`Drop`].
+    /// However, [`dispose`](Self::dispose) only needs to take `&self` instead of `&mut self`.
+    /// Dropping a [`ScopeArena`] will automatically call [`dispose`](Self::dispose).
+    ///
+    /// If a [`ScopeArena`] has already been disposed, calling it again does nothing.
+    pub unsafe fn dispose(&self) {
+        for &ptr in &*self.inner.get() {
+            // SAFETY: the ptr was allocated in Self::alloc using Box::into_raw.
+            let boxed: Box<dyn ReallyAny> = Box::from_raw(ptr);
+            // Call the drop code for the allocated value.
+            drop(boxed);
+        }
+        // Clear the inner Vec to prevent dangling references.
+        drop(std::mem::take(&mut *self.inner.get()));
+    }
 }
 
 impl<'a> Drop for ScopeArena<'a> {
     fn drop(&mut self) {
-        for &mut ptr in self.inner.get_mut() {
-            // SAFETY: the ptr was allocated in Self::alloc using Box::into_raw.
-            let boxed: Box<dyn ReallyAny> = unsafe { Box::from_raw(ptr) };
-            // Call the drop code for the allocated value.
-            drop(boxed);
-        }
+        unsafe { self.dispose() }
     }
 }

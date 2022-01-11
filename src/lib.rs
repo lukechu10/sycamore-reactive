@@ -38,8 +38,7 @@ pub struct Scope<'id, 'a> {
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
     child_scopes: RefCell<SlotMap<DefaultKey, *mut Scope<'id, 'a>>>,
-    signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
-    refs: RefCell<Vec<*mut (dyn ReallyAny + 'a)>>,
+    arena: ScopeArena<'a>,
     contexts: RefCell<HashMap<TypeId, *mut (dyn Any)>>,
     parent: Option<*const Self>,
     _phantom1: InvariantLifetime<'id>,
@@ -50,12 +49,16 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// Create a new [`Scope`]. This function is deliberately not `pub` because it should not be
     /// possible to access a [`Scope`] directly on the stack.
     pub(crate) fn new() -> Self {
+        // Even though the initialization code below is same as deriving Default::default(), we
+        // can't do that because accessing a raw Scope outside of a scope closure breaks
+        // safety contracts.
+        //
+        // Self::new() is intentionally pub(crate) only to prevent end-users from creating a Scope.
         Self {
             effects: Default::default(),
             cleanups: Default::default(),
             child_scopes: Default::default(),
-            signals: Default::default(),
-            refs: Default::default(),
+            arena: Default::default(),
             contexts: Default::default(),
             parent: None,
             _phantom1: Default::default(),
@@ -126,14 +129,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// The created signal lasts as long as the scope and cannot be used outside of the scope.
     pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'id, 'a, T> {
         let signal = Signal::new(value);
-        let boxed = Box::new(signal);
-        let ptr = Box::into_raw(boxed);
-        self.signals.borrow_mut().push(ptr);
-        // SAFETY: the address of the Signal<T> lives as long as 'a because:
-        // - It is allocated on the heap and therefore has a stable address.
-        // - self.signals is append only. That means that the Box<Signal<T>> will not be dropped
-        //   until Self is dropped.
-        unsafe { &*ptr }
+        self.arena.alloc(signal)
     }
 
     /// Allocate a new arbitrary value under the current [`Scope`].
@@ -158,15 +154,8 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// # });
     /// ```
     pub fn create_ref<T: 'a>(&'a self, value: T) -> DataRef<'id, 'a, T> {
-        let boxed = Box::new(value);
-        let ptr = Box::into_raw(boxed);
-        self.refs.borrow_mut().push(ptr);
-        // SAFETY: the address of the ref lives as long as 'a because:
-        // - It is allocated on the heap and therefore has a stable address.
-        // - self.signals is append only. That means that the Box<_> will not be dropped until Self
-        //   is dropped.
-        let value = unsafe { &*ptr };
-        DataRef::new(value)
+        let r = self.arena.alloc(value);
+        DataRef::new(r)
     }
 
     /// Adds a callback that is called when the scope is destroyed.
@@ -238,10 +227,9 @@ impl<'id, 'a> Scope<'id, 'a> {
         }
     }
 
-    /// Cleanup the resources owned by the [`Scope`]. This is not automatically called in [`Drop`]
-    /// because that would violate Rust's aliasing rules. However, [`dispose`](Self::dispose)
-    /// only needs to take `&self` instead of `&mut self`. Dropping a [`Scope`] will
-    /// automatically call [`dispose`](Self::dispose).
+    /// Cleanup the resources owned by the [`Scope`]. This is automatically called in [`Drop`]
+    /// However, [`dispose`](Self::dispose) only needs to take `&self` instead of `&mut self`.
+    /// Dropping a [`Scope`] will automatically call [`dispose`](Self::dispose).
     ///
     /// If a [`Scope`] has already been disposed, calling it again does nothing.
     ///
@@ -264,16 +252,13 @@ impl<'id, 'a> Scope<'id, 'a> {
                 cb();
             }
         });
-        // Drop signals.
-        for i in self.signals.take() {
-            // SAFETY: These pointers were allocated in Self::create_signal.
+        // Cleanup context values.
+        for &i in self.contexts.take().values() {
+            // SAFETY: These pointers were allocated in Self::provide_context.
             drop(Box::from_raw(i));
         }
-        // Drop refs.
-        for i in self.refs.take() {
-            // SAFETY: These pointers were allocated in Self::create_ref.
-            drop(Box::from_raw(i));
-        }
+        // Cleanup signals and refs allocated on the arena.
+        self.arena.dispose();
     }
 }
 
