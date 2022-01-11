@@ -11,23 +11,23 @@ thread_local! {
     pub(crate) static EFFECTS: RefCell<Vec<*mut EffectState<'static>>> = Default::default();
 }
 
+/// The internal state of an effect. The effect callback and the effect dependencies are stored in
+/// this struct.
 pub(crate) struct EffectState<'a> {
     /// The callback when the effect is re-executed.
     cb: Rc<RefCell<dyn FnMut() + 'a>>,
+    /// A list of dependencies that can trigger this effect.
     dependencies: HashSet<EffectDependency<'a>>,
 }
 
 /// Implements reference equality for [`AnySignal`]s.
 pub(crate) struct EffectDependency<'a>(&'a SignalEmitter<'a>);
-
 impl<'a> std::cmp::PartialEq for EffectDependency<'a> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
-
 impl<'a> std::cmp::Eq for EffectDependency<'a> {}
-
 impl<'a> std::hash::Hash for EffectDependency<'a> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (self.0 as *const SignalEmitter<'a>).hash(state);
@@ -44,6 +44,7 @@ impl<'a> EffectState<'a> {
         self.dependencies.clear();
     }
 
+    /// Add a dependency to the effect.
     pub fn add_dependency(&mut self, signal: &'a SignalEmitter<'a>) {
         self.dependencies.insert(EffectDependency(signal));
     }
@@ -163,7 +164,8 @@ impl<'id, 'a> Scope<'id, 'a> {
             #[allow(clippy::redundant_closure)]
             let new_disposer: Option<Box<dyn FnOnce()>> =
                 Some(Box::new(self.create_child_scope(|ctx| {
-                    // SAFETY: TODO
+                    // SAFETY: f takes the same parameter as the argument to
+                    // self.create_child_scope(_).
                     f(unsafe { std::mem::transmute(ctx) })
                 })));
             // SAFETY: transmute the lifetime. This is safe because disposer is only used within the
