@@ -31,7 +31,7 @@ impl<'a> SignalEmitter<'a> {
             if let Some(last) = effects.borrow().last() {
                 // SAFETY: See guarantee on EffectState within EFFECTS.
                 let last = unsafe { &mut **last };
-                // SAFETY: TODO
+                // SAFETY: `last` necessarily lasts longer than self.
                 last.add_dependency(unsafe { std::mem::transmute(self) });
             }
         });
