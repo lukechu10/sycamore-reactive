@@ -40,7 +40,7 @@ pub struct Scope<'id, 'a> {
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
     refs: RefCell<Vec<*mut (dyn ReallyAny + 'a)>>,
     parent: Option<*const Self>,
-    _phantom1: PhantomData<&'id ()>,
+    _phantom1: InvariantLifetime<'id>,
     _phantom2: InvariantLifetime<'a>,
 }
 
@@ -121,7 +121,7 @@ pub fn create_scope_immediate(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) {
 impl<'id, 'a> Scope<'id, 'a> {
     /// Create a new [`Signal`] under the current [`Scope`].
     /// The created signal lasts as long as the scope and cannot be used outside of the scope.
-    pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'a, T> {
+    pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'id, 'a, T> {
         let signal = Signal::new(value);
         let boxed = Box::new(signal);
         let ptr = Box::into_raw(boxed);

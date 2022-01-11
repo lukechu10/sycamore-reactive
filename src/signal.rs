@@ -58,12 +58,13 @@ impl<'a> SignalEmitter<'a> {
 }
 
 /// A read-only [`Signal`].
-pub struct ReadSignal<'a, T> {
+pub struct ReadSignal<'id, 'a, T> {
     value: RefCell<Rc<T>>,
     emitter: SignalEmitter<'a>,
+    _phantom: InvariantLifetime<'id>,
 }
 
-impl<'a, T> ReadSignal<'a, T> {
+impl<'id, 'a, T> ReadSignal<'id, 'a, T> {
     /// Get the current value of the state. When called inside a reactive scope, calling this will
     /// add itself to the scope's dependencies.
     ///
@@ -122,7 +123,11 @@ impl<'a, T> ReadSignal<'a, T> {
     /// # });
     /// ```
     #[must_use]
-    pub fn map<U>(&self, ctx: ScopeRef<'_, 'a>, mut f: impl FnMut(&T) -> U + 'a) -> &'a ReadSignal<U> {
+    pub fn map<U>(
+        &'a self,
+        ctx: ScopeRef<'id, 'a>,
+        mut f: impl FnMut(&T) -> U + 'a,
+    ) -> &'a ReadSignal<'id, 'a, U> {
         ctx.create_memo(move || f(&self.get()))
     }
 
@@ -136,14 +141,15 @@ impl<'a, T> ReadSignal<'a, T> {
 }
 
 /// Reactive state that can be updated and subscribed to.
-pub struct Signal<'a, T>(ReadSignal<'a, T>);
+pub struct Signal<'id, 'a, T>(ReadSignal<'id, 'a, T>);
 
-impl<'a, T> Signal<'a, T> {
+impl<'id, 'a, T> Signal<'id, 'a, T> {
     /// Create a new [`Signal`] with the specified value.
     pub(crate) fn new(value: T) -> Self {
         Self(ReadSignal {
             value: RefCell::new(Rc::new(value)),
             emitter: Default::default(),
+            _phantom: InvariantLifetime::default(),
         })
     }
 
@@ -174,27 +180,33 @@ impl<'a, T> Signal<'a, T> {
         *self.0.value.borrow_mut() = Rc::new(value);
     }
 
-    /// Split a signal into getter and setter handles.
-    /// 
-    /// # Example
-    /// ```rust
-    /// # use sycamore_reactive::*;
-    /// # create_scope_immediate(|ctx| {
-    /// let (state, set_state) = ctx.create_signal(0).split();
-    /// assert_eq!(*state(), 0);
-    ///
-    /// set_state(1);
-    /// assert_eq!(*state(), 1);
-    /// # });
-    /// ```
-    pub fn split(&'a self) -> (impl Fn() -> Rc<T> + Copy + 'a, impl Fn(T) + Copy + 'a) {
-        let getter = || self.get();
-        let setter = |x| self.set(x);
-        (getter, setter)
-    }
+    // TODO: make this work with 'id lifetimes
+    // /// Split a signal into getter and setter handles.
+    // ///
+    // /// # Example
+    // /// ```rust
+    // /// # use sycamore_reactive::*;
+    // /// # create_scope_immediate(|ctx| {
+    // /// let (state, set_state) = ctx.create_signal(0).split();
+    // /// assert_eq!(*state(), 0);
+    // ///
+    // /// set_state(1);
+    // /// assert_eq!(*state(), 1);
+    // /// # });
+    // /// ```
+    // pub fn split(
+    //     &'a self,
+    // ) -> (
+    //     impl Fn() -> Rc<T> + Copy + 'a + 'id,
+    //     impl Fn(T) + Copy + 'a + 'id,
+    // ) {
+    //     let getter = move || self.get();
+    //     let setter = move |x| self.set(x);
+    //     (getter, setter)
+    // }
 }
 
-impl<'a, T: Default> Signal<'a, T> {
+impl<'id, 'a, T: Default> Signal<'id, 'a, T> {
     /// Take the current value out and replace it with the default value.
     ///
     /// This will notify and update any effects and memos that depend on this value.
@@ -213,8 +225,8 @@ impl<'a, T: Default> Signal<'a, T> {
     }
 }
 
-impl<'a, T> Deref for Signal<'a, T> {
-    type Target = ReadSignal<'a, T>;
+impl<'id, 'a, T> Deref for Signal<'id, 'a, T> {
+    type Target = ReadSignal<'id, 'a, T>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -223,8 +235,8 @@ impl<'a, T> Deref for Signal<'a, T> {
 
 /// A trait that is implemented for all signals that are allocated on a [`Scope`].
 pub(crate) trait AnySignal<'a> {}
-impl<'a, T> AnySignal<'a> for Signal<'a, T> {}
-impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {}
+impl<'a, T> AnySignal<'a> for Signal<'_, 'a, T> {}
+impl<'a, T> AnySignal<'a> for ReadSignal<'_, 'a, T> {}
 
 /// A signal that is not bound to a [`Scope`].
 ///
@@ -264,10 +276,10 @@ impl<'a, T> AnySignal<'a> for ReadSignal<'a, T> {}
 /// });
 /// ```
 #[derive(Clone)]
-pub struct RcSignal<T>(Rc<Signal<'static, T>>);
+pub struct RcSignal<T>(Rc<Signal<'static, 'static, T>>);
 
 impl<T> Deref for RcSignal<T> {
-    type Target = Signal<'static, T>;
+    type Target = Signal<'static, 'static, T>;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()

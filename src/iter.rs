@@ -23,10 +23,10 @@ impl<'id, 'a> Scope<'id, 'a> {
     ///  _Credits: Based on TypeScript implementation in <https://github.com/solidjs/solid>_
     pub fn map_keyed<T, K, U>(
         &'a self,
-        list: &'a ReadSignal<'a, Vec<T>>,
+        list: &'a ReadSignal<'id, 'a, Vec<T>>,
         map_fn: impl Fn(ScopeRef<'_, '_>, &T) -> U + 'a,
         key_fn: impl Fn(&T) -> K + 'a,
-    ) -> &'a ReadSignal<'a, Vec<U>>
+    ) -> &'a ReadSignal<'id, 'a, Vec<U>>
     where
         T: Eq + Clone + 'a,
         K: Eq + Hash,
@@ -205,9 +205,9 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// * `map_fn` - A closure that maps from the input type to the output type.
     pub fn map_indexed<T, U>(
         &'a self,
-        list: &'a ReadSignal<'a, Vec<T>>,
+        list: &'a ReadSignal<'id, 'a, Vec<T>>,
         map_fn: impl Fn(ScopeRef<'_, '_>, &T) -> U + 'a,
-    ) -> &'a ReadSignal<'a, Vec<U>>
+    ) -> &'a ReadSignal<'id, 'a, Vec<U>>
     where
         T: PartialEq + Clone,
         U: Clone + 'a,

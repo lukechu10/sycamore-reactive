@@ -46,7 +46,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// assert_eq!(*double.get(), 2);
     /// # });
     /// ```
-    pub fn create_memo<U: 'a>(&'a self, f: impl FnMut() -> U + 'a) -> &'a ReadSignal<'a, U> {
+    pub fn create_memo<U: 'a>(&'a self, f: impl FnMut() -> U + 'a) -> &'a ReadSignal<'id, 'a, U> {
         self.create_selector_with(f, |_, _| false)
     }
 
@@ -73,7 +73,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     pub fn create_selector<U: PartialEq + 'a>(
         &'a self,
         f: impl FnMut() -> U + 'a,
-    ) -> &'a ReadSignal<'a, U> {
+    ) -> &'a ReadSignal<'id, 'a, U> {
         self.create_selector_with(f, PartialEq::eq)
     }
 
@@ -90,7 +90,7 @@ impl<'id, 'a> Scope<'id, 'a> {
         &'a self,
         mut f: impl FnMut() -> U + 'a,
         eq_f: impl Fn(&U, &U) -> bool + 'a,
-    ) -> &'a ReadSignal<'a, U> {
+    ) -> &'a ReadSignal<'id, 'a, U> {
         let signal: Rc<Cell<Option<&Signal<U>>>> = Default::default();
 
         self.create_effect({
@@ -149,11 +149,13 @@ impl<'id, 'a> Scope<'id, 'a> {
         &'a self,
         initial: U,
         reduce: impl Fn(&U, Msg) -> U + 'a,
-    ) -> (&'a ReadSignal<U>, Rc<impl Fn(Msg) + 'a>) {
+    ) -> (&'a ReadSignal<'id, 'a, U>, Rc<impl Fn(Msg) + 'a>) {
         let memo = self.create_signal(initial);
+        // SAFETY: TODO
+        let memo_extended: &'a Signal<'a, 'a, U> = unsafe { std::mem::transmute(memo) };
 
         let dispatcher = move |msg| {
-            memo.set(reduce(&memo.get_untracked(), msg));
+            memo_extended.set(reduce(&memo_extended.get_untracked(), msg));
         };
 
         (&*memo, Rc::new(dispatcher))
