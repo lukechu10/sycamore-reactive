@@ -3,7 +3,15 @@
 use crate::*;
 
 impl<'id, 'a> Scope<'id, 'a> {
-    /// TODO: docs
+    /// Provides a context in the current [`Scope`]. The context can later be accessed by using
+    /// [`use_context`](Self::use_context) lower in the scope hierarchy.
+    ///
+    /// The context can also be accessed in the same scope in which it is provided.
+    ///
+    /// # Panics
+    /// This method panics if a context with the same type exists already in this scope.
+    /// Note that if a context with the same type exists in a parent scope, the new context will
+    /// shadow the old context.
     pub fn provide_context<T: 'static>(&'a self, value: T) {
         let type_id = TypeId::of::<T>();
         let boxed = Box::new(value);
@@ -13,7 +21,8 @@ impl<'id, 'a> Scope<'id, 'a> {
         }
     }
 
-    /// TODO: docs
+    /// Tries to get a context value of the given type. If no context with the right type found,
+    /// returns `None`. For a panicking version, see [`use_context`](Self::use_context).
     pub fn try_use_context<T: 'static>(&'a self) -> Option<DataRef<'id, 'a, T>> {
         let type_id = TypeId::of::<T>();
         let this = Some(self);
@@ -35,7 +44,11 @@ impl<'id, 'a> Scope<'id, 'a> {
         None
     }
 
-    /// TODO: docs
+    /// Gets a context value of the given type.
+    ///
+    /// # Panics
+    /// This method panics if the context cannot be found in the current scope hierarchy.
+    /// For a non-panicking version, see [`try_use_context`](Self::try_use_context).
     #[track_caller]
     pub fn use_context<T: 'static>(&'a self) -> DataRef<'id, 'a, T> {
         self.try_use_context().expect("context not found for type")
