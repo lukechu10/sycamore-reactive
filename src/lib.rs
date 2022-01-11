@@ -40,7 +40,7 @@ pub struct Scope<'id, 'a> {
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
     refs: RefCell<Vec<*mut (dyn ReallyAny + 'a)>>,
     parent: Option<*const Self>,
-    _phantom1: InvariantLifetime<'id>,
+    _phantom1: PhantomData<&'id ()>,
     _phantom2: InvariantLifetime<'a>,
 }
 
