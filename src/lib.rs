@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+mod context;
 mod effect;
 mod iter;
 mod memo;
@@ -10,8 +11,11 @@ mod signal;
 pub use effect::*;
 pub use signal::*;
 
+use std::any::{Any, TypeId};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::rc::{Rc, Weak};
 
 use indexmap::IndexMap;
@@ -22,8 +26,24 @@ trait ReallyAny {}
 impl<T> ReallyAny for T {}
 
 /// A wrapper type around a lifetime that forces the lifetime to be invariant.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 struct InvariantLifetime<'id>(PhantomData<&'id mut &'id ()>);
+
+/// A ref to data allocated on a [`Scope`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DataRef<'id, 'a, T: 'a> {
+    _phantom: InvariantLifetime<'id>,
+    value: &'a T,
+}
+
+impl<'id, 'a, T> Deref for DataRef<'id, 'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+} 
+
 
 /// A reactive scope.
 ///
@@ -39,6 +59,7 @@ pub struct Scope<'id, 'a> {
     child_scopes: RefCell<SlotMap<DefaultKey, *mut Scope<'id, 'a>>>,
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
     refs: RefCell<Vec<*mut (dyn ReallyAny + 'a)>>,
+    contexts: RefCell<HashMap<TypeId, *mut (dyn Any)>>,
     parent: Option<*const Self>,
     _phantom1: InvariantLifetime<'id>,
     _phantom2: InvariantLifetime<'a>,
@@ -54,6 +75,7 @@ impl<'id, 'a> Scope<'id, 'a> {
             child_scopes: Default::default(),
             signals: Default::default(),
             refs: Default::default(),
+            contexts: Default::default(),
             parent: None,
             _phantom1: Default::default(),
             _phantom2: Default::default(),
@@ -135,7 +157,26 @@ impl<'id, 'a> Scope<'id, 'a> {
 
     /// Allocate a new arbitrary value under the current [`Scope`].
     /// The allocated value lasts as long as the scope and cannot be used outside of the scope.
-    pub fn create_ref<T: 'a>(&'a self, value: T) -> &'a T {
+    /// 
+    /// # Ref lifetime
+    /// 
+    /// The lifetime of the returned ref is the same as the [`Scope`].
+    /// As such, the reference cannot escape the [`Scope`].
+    /// ```compile_fail
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// let mut outer = None;
+    /// let disposer = ctx.create_child_scope(|ctx| {
+    ///     let data = ctx.create_ref(0);
+    ///     let raw: &i32 = &data;
+    ///     outer = Some(raw);
+    ///     //           ^^^
+    /// });
+    /// disposer();
+    /// let _ = outer.unwrap();
+    /// # });
+    /// ```
+    pub fn create_ref<T: 'a>(&'a self, value: T) -> DataRef<'id, 'a, T> {
         let boxed = Box::new(value);
         let ptr = Box::into_raw(boxed);
         self.refs.borrow_mut().push(ptr);
@@ -143,7 +184,11 @@ impl<'id, 'a> Scope<'id, 'a> {
         // - It is allocated on the heap and therefore has a stable address.
         // - self.signals is append only. That means that the Box<_> will not be dropped until Self
         //   is dropped.
-        unsafe { &*ptr }
+        let value = unsafe { &*ptr };
+        DataRef {
+            _phantom: InvariantLifetime::default(),
+            value,
+        }
     }
 
     /// Adds a callback that is called when the scope is destroyed.
