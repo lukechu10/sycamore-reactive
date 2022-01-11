@@ -36,7 +36,7 @@ struct InvariantLifetime<'id>(PhantomData<&'id mut &'id ()>);
 pub struct Scope<'id, 'a> {
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
-    child_ctx: RefCell<SlotMap<DefaultKey, *mut Scope<'id, 'a>>>,
+    child_scopes: RefCell<SlotMap<DefaultKey, *mut Scope<'id, 'a>>>,
     signals: RefCell<Vec<*mut (dyn AnySignal<'a> + 'a)>>,
     refs: RefCell<Vec<*mut (dyn ReallyAny + 'a)>>,
     parent: Option<*const Self>,
@@ -51,7 +51,7 @@ impl<'id, 'a> Scope<'id, 'a> {
         Self {
             effects: Default::default(),
             cleanups: Default::default(),
-            child_ctx: Default::default(),
+            child_scopes: Default::default(),
             signals: Default::default(),
             refs: Default::default(),
             parent: None,
@@ -192,7 +192,7 @@ impl<'id, 'a> Scope<'id, 'a> {
         let boxed = Box::new(ctx);
         let ptr = Box::into_raw(boxed);
         let key = self
-            .child_ctx
+            .child_scopes
             .borrow_mut()
             // SAFETY: TODO
             .insert(unsafe { std::mem::transmute(ptr) });
@@ -204,7 +204,7 @@ impl<'id, 'a> Scope<'id, 'a> {
         //   Self is dropped.
         f(unsafe { &*ptr });
         move || {
-            let ctx = this.child_ctx.borrow_mut().remove(key).unwrap();
+            let ctx = this.child_scopes.borrow_mut().remove(key).unwrap();
             // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer
             // than 'a.
             let ctx = unsafe { Box::from_raw(ctx) };
@@ -227,7 +227,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// `dispose` should not be called inside the `create_scope` or `create_child_scope` closure.
     pub(crate) unsafe fn dispose(&self) {
         // Drop child contexts.
-        for &i in self.child_ctx.take().values() {
+        for &i in self.child_scopes.take().values() {
             // SAFETY: These pointers were allocated in Self::create_child_scope.
             let ctx = Box::from_raw(i);
             // Dispose of ctx if it has not already been disposed.
