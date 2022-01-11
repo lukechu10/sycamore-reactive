@@ -45,14 +45,27 @@ struct InvariantLifetime<'id>(PhantomData<&'id mut &'id ()>);
 ///   data from an outer scope into an inner scope. This lifetime is also invariant because it is
 ///   used within an cell.
 pub struct Scope<'id, 'a> {
+    /// Effect functions created on the [`Scope`].
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
+    /// Cleanup functions.
     cleanups: RefCell<Vec<Box<dyn FnOnce() + 'a>>>,
+    /// Child scopes.
+    ///
+    /// The raw pointer is owned by this field.
     child_scopes: RefCell<SlotMap<DefaultKey, *mut Scope<'id, 'a>>>,
+    /// An arena allocator for allocating refs and signals.
     arena: ScopeArena<'a>,
+    /// Contexts that are allocated on the current [`Scope`].
+    /// See the [`mod@context`] module.
+    ///
+    /// The raw pointer is owned by this field.
     contexts: RefCell<HashMap<TypeId, *mut (dyn Any)>>,
-    parent: Option<*const Self>,
-    _phantom1: InvariantLifetime<'id>,
-    _phantom2: InvariantLifetime<'a>,
+    /// A pointer to the parent scope.
+    /// # Safety
+    /// The parent scope does not actually have the right lifetime.
+    parent: Option<*const Scope<'id, 'a>>,
+    // Make sure that both 'id and 'a are invariant.
+    _phantom: (InvariantLifetime<'id>, InvariantLifetime<'a>),
 }
 
 impl<'id, 'a> Scope<'id, 'a> {
@@ -71,8 +84,7 @@ impl<'id, 'a> Scope<'id, 'a> {
             arena: Default::default(),
             contexts: Default::default(),
             parent: None,
-            _phantom1: Default::default(),
-            _phantom2: Default::default(),
+            _phantom: Default::default(),
         }
     }
 }
@@ -120,7 +132,7 @@ pub fn create_scope(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) -> impl FnOn
     // necessary outlives the closure call because it is only dropped in the returned disposer
     // closure.
     f(unsafe { &*ptr });
-    //           ^^^ -> `ptr` is still accessible here.
+    //           ^^^ -> `ptr` is still accessible here after the call to f.
 
     // Ownership of `ptr` is passed into the closure.
     move || unsafe {
@@ -219,32 +231,35 @@ impl<'id, 'a> Scope<'id, 'a> {
         'a: 'b,
         F: for<'child_id> FnOnce(ScopeRef<'child_id, 'b>),
     {
-        let mut ctx: Scope = Scope::new();
-        // SAFETY: TODO
-        ctx.parent = Some(unsafe { std::mem::transmute(self as *const _) });
-        let boxed = Box::new(ctx);
+        let mut child: Scope = Scope::new();
+        // SAFETY: The only fields that are accessed on self from child is `context` which does not
+        // have any lifetime annotations.
+        child.parent = Some(unsafe { std::mem::transmute(self as *const _) });
+        let boxed = Box::new(child);
         let ptr = Box::into_raw(boxed);
+
         let key = self
             .child_scopes
             .borrow_mut()
-            // SAFETY: TODO
+            // SAFETY: None of the fields of ptr are accessed through child_scopes therefore we can
+            // safely transmute the lifetime.
             .insert(unsafe { std::mem::transmute(ptr) });
 
+        // SAFETY: no fields with lifetime 'id are accessed through `this`.
         let this: &'a Scope<'a, 'a> = unsafe { std::mem::transmute(self) };
         // SAFETY: the address of the Ctx lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
         // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until
         //   Self is dropped.
         f(unsafe { &*ptr });
-        move || {
+        //           ^^^ -> `ptr` is still accessible here after the call to f.
+        move || unsafe {
             let ctx = this.child_scopes.borrow_mut().remove(key).unwrap();
             // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer
             // than 'a.
-            let ctx = unsafe { Box::from_raw(ctx) };
+            let ctx = Box::from_raw(ctx);
             // SAFETY: Outside of call to f.
-            unsafe {
-                ctx.dispose();
-            }
+            ctx.dispose();
         }
     }
 
@@ -260,6 +275,17 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// # Safety
     ///
     /// `dispose` should not be called inside the `create_scope` or `create_child_scope` closure.
+    ///
+    /// # Drop order
+    ///
+    /// Fields are dropped in the following order:
+    /// * `child_scopes` - Run child scope drop first.
+    /// * `effects`
+    /// * `cleanups`
+    /// * `contexts` - Contexts can be refereed to inside a cleanup callback so they are dropped
+    ///   after cleanups.
+    /// * `arena` - Signals and refs are dropped last because they can be refereed to in the other
+    ///   fields (e.g. inside a cleanup callback).
     pub(crate) unsafe fn dispose(&self) {
         // Drop child contexts.
         for &i in self.child_scopes.take().values() {

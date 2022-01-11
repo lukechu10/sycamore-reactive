@@ -1,5 +1,7 @@
 //! Reactive utilities for dealing with lists and iterables.
 
+#![forbid(unsafe_code)]
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
