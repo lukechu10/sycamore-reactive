@@ -34,10 +34,7 @@ impl<'id, 'a> Scope<'id, 'a> {
                 // - 'a is variant because it is an immutable reference.
                 let value = unsafe { &**value };
                 let value = value.downcast_ref::<T>().unwrap();
-                let data = DataRef {
-                    _phantom: InvariantLifetime::default(),
-                    value,
-                };
+                let data = DataRef::new(value);
                 return Some(data);
             }
         }
