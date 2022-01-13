@@ -1,7 +1,7 @@
 //! Abstraction over a rendering backend.
 
-// #[cfg(feature = "dom")]
-// pub mod dom_node;
+#[cfg(feature = "dom")]
+pub mod dom_node;
 #[cfg(all(feature = "dom", feature = "experimental-hydrate"))]
 pub mod hydrate_dom;
 #[cfg(feature = "ssr")]
@@ -13,8 +13,10 @@ use std::hash::Hash;
 use wasm_bindgen::prelude::*;
 use web_sys::Event;
 
-// #[cfg(feature = "dom")]
-// pub use dom_node::*;
+use crate::reactive::ScopeRef;
+
+#[cfg(feature = "dom")]
+pub use dom_node::*;
 #[cfg(all(feature = "dom", feature = "experimental-hydrate"))]
 pub use hydrate_dom::*;
 #[cfg(feature = "ssr")]
@@ -120,8 +122,8 @@ pub trait GenericNode: fmt::Debug + Clone + PartialEq + Eq + Hash + 'static {
     /// Remove this node from the tree.
     fn remove_self(&self);
 
-    /// Add a [`EventHandler`] to the event `name`.
-    fn event(&self, name: &str, handler: Box<dyn Fn(Self::EventType)>);
+    /// Add a event handler to the event `name`.
+    fn event(&self, ctx: ScopeRef, name: &str, handler: Box<dyn Fn(Self::EventType)>);
 
     /// Update inner text of the node. If the node has elements, all the elements are replaced with
     /// a new text node.

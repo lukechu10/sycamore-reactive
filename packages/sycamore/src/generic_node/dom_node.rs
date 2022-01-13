@@ -9,7 +9,7 @@ use wasm_bindgen::{intern, JsCast};
 use web_sys::{Comment, Element, Node, Text};
 
 use crate::generic_node::{GenericNode, Html};
-use crate::reactive::{create_scope, on_cleanup, ReactiveScope};
+use crate::reactive::*;
 use crate::utils::render::insert;
 use crate::view::View;
 
@@ -254,13 +254,13 @@ impl GenericNode for DomNode {
         self.node.unchecked_ref::<Element>().remove();
     }
 
-    fn event(&self, name: &str, handler: Box<dyn Fn(Self::EventType)>) {
+    fn event(&self, ctx: ScopeRef, name: &str, handler: Box<dyn Fn(Self::EventType)>) {
         let closure = Closure::wrap(handler);
         self.node
             .add_event_listener_with_callback(intern(name), closure.as_ref().unchecked_ref())
             .unwrap_throw();
 
-        on_cleanup(move || {
+        ctx.on_cleanup(move || {
             drop(closure);
         });
     }
@@ -301,13 +301,8 @@ pub fn render(template: impl FnOnce() -> View<DomNode>) {
 ///
 /// _This API requires the following crate features to be activated: `dom`_
 pub fn render_to(template: impl FnOnce() -> View<DomNode>, parent: &Node) {
-    let scope = render_get_scope(template, parent);
-
-    thread_local! {
-        static GLOBAL_SCOPES: std::cell::RefCell<Vec<ReactiveScope>> = std::cell::RefCell::new(Vec::new());
-    }
-
-    GLOBAL_SCOPES.with(|global_scopes| global_scopes.borrow_mut().push(scope));
+    // Do not call the destructor function, effectively leaking the scope.
+    let _ = render_get_scope(template, parent);
 }
 
 /// Render a [`View`] under a `parent` node, in a way that can be cleaned up.
@@ -321,9 +316,13 @@ pub fn render_to(template: impl FnOnce() -> View<DomNode>, parent: &Node) {
 ///
 /// _This API requires the following crate features to be activated: `dom`_
 #[must_use = "please hold onto the ReactiveScope until you want to clean things up, or use render_to() instead"]
-pub fn render_get_scope(template: impl FnOnce() -> View<DomNode>, parent: &Node) -> ReactiveScope {
-    create_scope(|| {
+pub fn render_get_scope<'a>(
+    template: impl FnOnce() -> View<DomNode> + 'a,
+    parent: &'a Node,
+) -> impl FnOnce() + 'a {
+    create_scope(|ctx| {
         insert(
+            ctx,
             &DomNode::from_web_sys(parent.clone()),
             template(),
             None,
