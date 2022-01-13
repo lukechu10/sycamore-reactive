@@ -289,7 +289,7 @@ impl Html for DomNode {
 /// Alias for [`render_to`] with `parent` being the `<body>` tag.
 ///
 /// _This API requires the following crate features to be activated: `dom`_
-pub fn render(template: impl FnOnce() -> View<DomNode>) {
+pub fn render(template: impl FnOnce(ScopeRef) -> View<DomNode>) {
     let window = web_sys::window().unwrap_throw();
     let document = window.document().unwrap_throw();
 
@@ -300,7 +300,7 @@ pub fn render(template: impl FnOnce() -> View<DomNode>) {
 /// For rendering under the `<body>` tag, use [`render`] instead.
 ///
 /// _This API requires the following crate features to be activated: `dom`_
-pub fn render_to(template: impl FnOnce() -> View<DomNode>, parent: &Node) {
+pub fn render_to(template: impl FnOnce(ScopeRef) -> View<DomNode>, parent: &Node) {
     // Do not call the destructor function, effectively leaking the scope.
     let _ = render_get_scope(template, parent);
 }
@@ -317,14 +317,14 @@ pub fn render_to(template: impl FnOnce() -> View<DomNode>, parent: &Node) {
 /// _This API requires the following crate features to be activated: `dom`_
 #[must_use = "please hold onto the ReactiveScope until you want to clean things up, or use render_to() instead"]
 pub fn render_get_scope<'a>(
-    template: impl FnOnce() -> View<DomNode> + 'a,
+    template: impl FnOnce(ScopeRef) -> View<DomNode> + 'a,
     parent: &'a Node,
 ) -> impl FnOnce() + 'a {
     create_scope(|ctx| {
         insert(
             ctx,
             &DomNode::from_web_sys(parent.clone()),
-            template(),
+            template(ctx),
             None,
             None,
             false,
