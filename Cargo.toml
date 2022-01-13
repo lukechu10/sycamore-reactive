@@ -1,8 +1,2 @@
-[package]
-name = "sycamore-reactive"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-indexmap = "1.8.0"
-slotmap = "1.0.6"
+[workspace]
+members = ["packages/sycamore-reactive"]
