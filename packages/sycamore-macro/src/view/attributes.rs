@@ -241,10 +241,10 @@ impl ToTokens for Attribute {
                 };
             }
             AttributeType::Event { event } => {
-                // TODO: Should events be reactive?
                 tokens.extend(quote_spanned! { expr_span=>
                     ::sycamore::generic_node::GenericNode::event(
                         &__el,
+                        ctx, // TODO
                         #event,
                         ::std::boxed::Box::new(#expr),
                     );

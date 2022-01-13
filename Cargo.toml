@@ -6,5 +6,6 @@ members = [
     "packages/sycamore-reactive",
 
     # Examples
+    "examples/counter",
     "examples/hello-world",
 ]

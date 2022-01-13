@@ -35,7 +35,7 @@ impl<G: GenericNode> View<G> {
     }
 
     /// Create a new [`View`] from a [`FnMut`].
-    pub fn new_dyn(ctx: ScopeRef<'_, '_>, f: impl FnMut() -> View<G> + 'static) -> Self {
+    pub fn new_dyn<'a>(ctx: ScopeRef<'_, 'a>, f: impl FnMut() -> View<G> + 'a) -> Self {
         let memo = ctx.create_memo(f);
         let signal = create_rc_signal(memo.get().as_ref().clone());
         ctx.create_effect({

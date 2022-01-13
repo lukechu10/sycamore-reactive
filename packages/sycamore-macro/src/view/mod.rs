@@ -89,7 +89,7 @@ impl ToTokens for HtmlTree {
                 )
             },
             Self::Splice(splice) => quote! {
-                ::sycamore::view::View::new_dyn(move ||
+                ::sycamore::view::View::new_dyn(ctx, /* TODO */ move ||
                     ::sycamore::view::IntoView::create(&#splice)
                 )
             },

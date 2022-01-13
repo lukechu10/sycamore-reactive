@@ -109,7 +109,7 @@ impl ToTokens for Element {
                         expr: Expr::Lit(_) | Expr::Path(_), ..
                     }) => {
                         quote_spanned! { splice.span()=>
-                            ::sycamore::utils::render::insert(
+                            ::sycamore::utils::render::insert(ctx, // TODO
                                 &__el,
                                 ::sycamore::view::IntoView::create(&(#splice)),
                                 None, None, #multi
@@ -187,7 +187,7 @@ impl ToTokens for Element {
                                         );
                                         let __end_marker = ::sycamore::generic_node::GenericNode::marker_with_text("/");
                                         ::sycamore::generic_node::GenericNode::append_child(&__el, &__end_marker);
-                                        ::sycamore::utils::render::insert(
+                                        ::sycamore::utils::render::insert(ctx, // TODO
                                             &__el,
                                             #component,
                                             #initial, Some(&__end_marker), #multi
@@ -195,7 +195,7 @@ impl ToTokens for Element {
                                         #quote_marker_or_none
                                     } else {
                                         #quote_marker
-                                        ::sycamore::utils::render::insert(
+                                        ::sycamore::utils::render::insert(ctx, // TODO
                                             &__el,
                                             #component,
                                             #initial, __marker, #multi
@@ -212,9 +212,9 @@ impl ToTokens for Element {
                                         );
                                         let __end_marker = ::sycamore::generic_node::GenericNode::marker_with_text("/");
                                         ::sycamore::generic_node::GenericNode::append_child(&__el, &__end_marker);
-                                        ::sycamore::utils::render::insert(
+                                        ::sycamore::utils::render::insert(ctx, // TODO
                                             &__el,
-                                            ::sycamore::view::View::new_dyn(move ||
+                                            ::sycamore::view::View::new_dyn(ctx, /* TODO */ move ||
                                                 ::sycamore::view::IntoView::create(&(#splice))
                                             ),
                                             #initial, Some(&__end_marker), #multi
@@ -222,9 +222,9 @@ impl ToTokens for Element {
                                         #quote_marker_or_none
                                     } else {
                                         #quote_marker
-                                        ::sycamore::utils::render::insert(
+                                        ::sycamore::utils::render::insert(ctx, // TODO
                                             &__el,
-                                            ::sycamore::view::View::new_dyn(move ||
+                                            ::sycamore::view::View::new_dyn(ctx, /* TODO */ move ||
                                                 ::sycamore::view::IntoView::create(&(#splice))
                                             ),
                                             #initial, __marker, #multi
@@ -237,7 +237,7 @@ impl ToTokens for Element {
                             match child {
                                 HtmlTree::Component(component) => quote_spanned! { component.span()=>
                                     #quote_marker
-                                    ::sycamore::utils::render::insert(
+                                    ::sycamore::utils::render::insert(ctx, // TODO
                                         &__el,
                                         #component,
                                         #initial, __marker, #multi
@@ -245,9 +245,9 @@ impl ToTokens for Element {
                                 },
                                 HtmlTree::Splice(splice) => quote_spanned! { splice.span()=>
                                     #quote_marker
-                                    ::sycamore::utils::render::insert(
+                                    ::sycamore::utils::render::insert(ctx, // TODO
                                         &__el,
-                                        ::sycamore::view::View::new_dyn(move ||
+                                        ::sycamore::view::View::new_dyn(ctx, /* TODO */ move ||
                                             ::sycamore::view::IntoView::create(&(#splice))
                                         ),
                                         #initial, __marker, #multi

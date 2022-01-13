@@ -9,7 +9,7 @@ fn App<G: Html>(ctx: ScopeRef, props: ()) -> View<G> {
 }
 
 fn main() {
-    sycamore::render(|ctx| {
-        App(ctx, ())
+    sycamore::render(|ctx| view! {
+        App()
     });
 }
