@@ -1,10 +1,9 @@
 //! Reactive utilities for dealing with lists and iterables.
 
-#![forbid(unsafe_code)]
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::mem::MaybeUninit;
 use std::rc::Rc;
 
 use crate::*;
@@ -243,28 +242,31 @@ impl<'id, 'a> Scope<'id, 'a> {
                 for (i, new_item) in new_items.iter().enumerate() {
                     let new_item = new_item.clone();
                     let item = items.get(i);
+                    // We lift the equality out of the else if branch to satisfy borrow checker.
+                    let eqs = item != Some(&new_item);
 
-                    let tmp = Rc::new(RefCell::new(None));
-                    if item.is_none() {
+                    let mut tmp = MaybeUninit::<U>::zeroed();
+                    let ptr = &mut tmp as *mut MaybeUninit<U>;
+                    if item.is_none() || eqs {
                         let new_disposer = self.create_child_scope({
-                            let tmp = Rc::clone(&tmp);
                             let map_fn = Rc::clone(&map_fn);
-                            move |ctx| {
-                                *tmp.borrow_mut() = Some(map_fn(ctx, &new_item));
+                            move |ctx| unsafe {
+                                // SAFETY: callback is called immediately in
+                                // self.create_child_scope.
+                                // ptr is still accessible after self.create_child_scope and
+                                // therefore lives long enough.
+                                (*ptr).write(map_fn(ctx, &new_item));
                             }
                         });
-                        mapped.push(tmp.borrow().clone().unwrap());
-                        disposers.push(Box::new(new_disposer));
-                    } else if item != Some(&new_item) {
-                        let new_disposer = self.create_child_scope({
-                            let tmp = Rc::clone(&tmp);
-                            let map_fn = Rc::clone(&map_fn);
-                            move |ctx| {
-                                *tmp.borrow_mut() = Some(map_fn(ctx, &new_item));
-                            }
-                        });
-                        mapped[i] = tmp.borrow().clone().unwrap();
-                        disposers[i] = Box::new(new_disposer);
+                        if item.is_none() {
+                            // SAFETY: tmp is written in self.create_child_scope
+                            mapped.push(unsafe { tmp.assume_init() });
+                            disposers.push(Box::new(new_disposer));
+                        } else if eqs {
+                            // SAFETY: tmp is written in self.create_child_scope
+                            mapped[i] = unsafe { tmp.assume_init() };
+                            disposers[i] = Box::new(new_disposer);
+                        }
                     }
                 }
 
