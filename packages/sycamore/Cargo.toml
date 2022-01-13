@@ -9,6 +9,7 @@ edition = "2021"
 sycamore-reactive = { path = "../sycamore-reactive" }
 wasm-bindgen = "0.2.78"
 wasm-bindgen-futures = { version = "0.4.28", optional = true }
+ahash = "0.7.6"
 
 [dependencies.lexical]
 version = "6.0.1"
