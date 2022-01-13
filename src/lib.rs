@@ -319,6 +319,38 @@ impl Drop for Scope<'_, '_> {
     }
 }
 
+/// A helper function for making it explicit to define dependencies for an effect.
+///
+/// # Params
+/// * `dependencies` - A list of [`ReadSignal`]s that are tracked.
+/// * `f` - The callback function.
+///
+/// # Example
+/// ```
+/// # use sycamore_reactive::*;
+/// # create_scope_immediate(|ctx| {
+/// let state = ctx.create_signal(0);
+///
+/// ctx.create_effect(on([state], || {
+///     println!("State changed. New state value = {}", state.get());
+/// })); // Prints "State changed. New state value = 0"
+///
+/// state.set(1); // Prints "State changed. New state value = 1"
+/// # });
+/// ```
+pub fn on<'a, const N: usize>(
+    dependencies: [&'a (dyn AnyReadSignal<'a> + 'a); N],
+    mut f: impl FnMut() + 'a,
+) -> impl FnMut() + 'a {
+    move || {
+        for i in dependencies {
+            i.track();
+        }
+        #[allow(clippy::redundant_closure)] // Clippy false-positive
+        untrack(|| f())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{create_scope, create_scope_immediate};

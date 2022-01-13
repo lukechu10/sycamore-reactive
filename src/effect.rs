@@ -227,6 +227,25 @@ mod tests {
     }
 
     #[test]
+    fn effect_with_explicit_dependencies() {
+        create_scope_immediate(|ctx| {
+            let state = ctx.create_signal(0);
+
+            let double = ctx.create_signal(-1);
+
+            ctx.create_effect(on([state], || {
+                double.set(*state.get() * 2);
+            }));
+            assert_eq!(*double.get(), 0); // calling create_effect should call the effect at least once
+
+            state.set(1);
+            assert_eq!(*double.get(), 2);
+            state.set(2);
+            assert_eq!(*double.get(), 4);
+        });
+    }
+
+    #[test]
     fn effect_cannot_create_infinite_loop() {
         create_scope_immediate(|ctx| {
             let state = ctx.create_signal(0);

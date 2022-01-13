@@ -233,10 +233,26 @@ impl<'id, 'a, T> Deref for Signal<'id, 'a, T> {
     }
 }
 
-/// A trait that is implemented for all signals that are allocated on a [`Scope`].
-pub(crate) trait AnySignal<'a> {}
-impl<'a, T> AnySignal<'a> for Signal<'_, 'a, T> {}
-impl<'a, T> AnySignal<'a> for ReadSignal<'_, 'a, T> {}
+/// A trait that is implemented for all [`ReadSignal`]s regardless of the type parameter.
+pub trait AnyReadSignal<'a> {
+    /// Call the [`ReadSignal::track`] method.
+    fn track(&self);
+}
+impl<'a, T> AnyReadSignal<'a> for RcSignal<T> {
+    fn track(&self) {
+        self.deref().deref().track();
+    }
+}
+impl<'a, T> AnyReadSignal<'a> for Signal<'_, 'a, T> {
+    fn track(&self) {
+        self.deref().track();
+    }
+}
+impl<'a, T> AnyReadSignal<'a> for ReadSignal<'_, 'a, T> {
+    fn track(&self) {
+        self.track();
+    }
+}
 
 /// A signal that is not bound to a [`Scope`].
 ///
