@@ -149,16 +149,16 @@ impl<'id, 'a> Scope<'id, 'a> {
         &'a self,
         initial: U,
         reduce: impl Fn(&U, Msg) -> U + 'a,
-    ) -> (&'a ReadSignal<'id, 'a, U>, Rc<impl Fn(Msg) + 'a>) {
+    ) -> (&'a ReadSignal<'id, 'a, U>, Rc<Data<'id, impl Fn(Msg) + 'a>>) {
         let memo = self.create_signal(initial);
-        // SAFETY: TODO: this is a soundness hole because the returned closure can escape the scope.
+        // SAFETY: The returned closure is wrapped inside a `Data<'id, _>`.
         let memo_extended: &'a Signal<'a, 'a, U> = unsafe { std::mem::transmute(memo) };
 
         let dispatcher = move |msg| {
             memo_extended.set(reduce(&memo_extended.get_untracked(), msg));
         };
 
-        (&*memo, Rc::new(dispatcher))
+        (&*memo, Rc::new(Data::new(dispatcher)))
     }
 }
 

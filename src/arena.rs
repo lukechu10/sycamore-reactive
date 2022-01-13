@@ -10,7 +10,7 @@ pub(crate) trait ReallyAny {}
 impl<T> ReallyAny for T {}
 
 /// A ref to data allocated on a [`Scope`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DataRef<'id, 'a, T: 'a> {
     _phantom: InvariantLifetime<'id>,
     value: &'a T,
@@ -31,6 +31,43 @@ impl<'id, 'a, T> Deref for DataRef<'id, 'a, T> {
 
     fn deref(&self) -> &Self::Target {
         self.value
+    }
+}
+
+// Manually implement `Clone` and `Copy` for `DataRef` to prevent having over-constrained type
+// bounds.
+impl<'id, 'a, T> Clone for DataRef<'id, 'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            _phantom: InvariantLifetime::default(),
+            value: self.value,
+        }
+    }
+}
+impl<'id, 'a, T> Copy for DataRef<'id, 'a, T> {}
+
+/// Owned data that is tied to the lifetime of a [`Scope`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Data<'id, T> {
+    _phantom: InvariantLifetime<'id>,
+    value: T,
+}
+
+impl<'id, T> Data<'id, T> {
+    /// Create a new [`Data`] wrapping a raw reference.
+    pub(crate) fn new(value: T) -> Self {
+        Self {
+            _phantom: InvariantLifetime::default(),
+            value,
+        }
+    }
+}
+
+impl<'id, T> Deref for Data<'id, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
     }
 }
 
