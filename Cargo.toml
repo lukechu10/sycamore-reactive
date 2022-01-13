@@ -1,2 +1,2 @@
 [workspace]
-members = ["packages/sycamore-reactive"]
+members = ["packages/sycamore", "packages/sycamore-reactive"]
