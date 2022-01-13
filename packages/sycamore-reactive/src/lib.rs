@@ -226,6 +226,21 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// let _ = outer.unwrap();
     /// # });
     /// ```
+    /// However, the closure itself only needs to live as long as the call to this method because it
+    /// is called immediately. For example, the following compiles and is perfectly safe:
+    /// ```
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// let mut outer = String::new();
+    /// let disposer = ctx.create_child_scope(|ctx| {
+    ///     // outer is accessible inside the closure.
+    ///     outer = "Hello World!".to_string();
+    /// });
+    /// disposer();
+    /// drop(outer);
+    /// //   ^^^^^ -> and remains accessible outside the closure.
+    /// # });
+    /// ```
     pub fn create_child_scope<'b, F>(&'a self, f: F) -> impl FnOnce() + 'a
     where
         'a: 'b,
