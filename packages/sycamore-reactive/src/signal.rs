@@ -180,30 +180,32 @@ impl<'id, 'a, T> Signal<'id, 'a, T> {
         *self.0.value.borrow_mut() = Rc::new(value);
     }
 
-    // TODO: make this work with 'id lifetimes
-    // /// Split a signal into getter and setter handles.
-    // ///
-    // /// # Example
-    // /// ```rust
-    // /// # use sycamore_reactive::*;
-    // /// # create_scope_immediate(|ctx| {
-    // /// let (state, set_state) = ctx.create_signal(0).split();
-    // /// assert_eq!(*state(), 0);
-    // ///
-    // /// set_state(1);
-    // /// assert_eq!(*state(), 1);
-    // /// # });
-    // /// ```
-    // pub fn split(
-    //     &'a self,
-    // ) -> (
-    //     impl Fn() -> Rc<T> + Copy + 'a + 'id,
-    //     impl Fn(T) + Copy + 'a + 'id,
-    // ) {
-    //     let getter = move || self.get();
-    //     let setter = move |x| self.set(x);
-    //     (getter, setter)
-    // }
+    /// Split a signal into getter and setter handles.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use sycamore_reactive::*;
+    /// # create_scope_immediate(|ctx| {
+    /// let (state, set_state) = ctx.create_signal(0).split();
+    /// assert_eq!(*state(), 0);
+    ///
+    /// set_state(1);
+    /// assert_eq!(*state(), 1);
+    /// # });
+    /// ```
+    pub fn split(
+        &'a self,
+    ) -> (
+        Rc<Data<'id, impl Fn() -> Rc<T> + Copy + 'a>>,
+        Rc<Data<'id, impl Fn(T) + Copy + 'a>>,
+    ) {
+        // SAFETY: This is safe because the returned closures are wrapped in Data<'id, _> which
+        // re-adds the 'id lifetime back.
+        let this: &'a Signal<'a, 'a, T> = unsafe { std::mem::transmute(self) };
+        let getter = move || this.get();
+        let setter = move |x| this.set(x);
+        (Rc::new(Data::new(getter)), Rc::new(Data::new(setter)))
+    }
 }
 
 impl<'id, 'a, T: Default> Signal<'id, 'a, T> {
