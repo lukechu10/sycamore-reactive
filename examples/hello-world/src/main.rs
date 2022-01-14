@@ -1,5 +1,6 @@
 use sycamore::prelude::*;
 
+#[component]
 fn App<G: Html>(_: ScopeRef, _: ()) -> View<G> {
     view! {
         p {
