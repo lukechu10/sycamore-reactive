@@ -29,9 +29,9 @@ impl ToTokens for Component {
         let Component { path, paren, args } = self;
 
         let quoted = if args.empty_or_trailing() {
-            quote_spanned! { paren.span=> #path(ctx, ()) }
+            quote_spanned! { paren.span=> ::sycamore::component::instantiate(#path, ctx, ()) }
         } else {
-            quote_spanned! { path.span()=> #path(ctx, #args) }
+            quote_spanned! { path.span()=> ::sycamore::component::instantiate(#path, ctx, #args) }
         };
 
         tokens.extend(quoted);

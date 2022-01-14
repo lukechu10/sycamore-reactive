@@ -20,42 +20,20 @@ where
     }
 }
 
-// /// Instantiates a component.
-// #[inline(always)]
-// pub fn instantiate_component<G: GenericNode, Props, C: Component<G, Props>>(
-//     props: Props,
-// ) -> View<G> {
-//     if G::USE_HYDRATION_CONTEXT {
-//         #[cfg(feature = "experimental-hydrate")]
-//         return crate::utils::hydrate::hydrate_component(|| untrack(||
-// C::create_component(props)));         #[cfg(not(feature = "experimental-hydrate"))]
-//         return untrack(|| C::create_component(props));
-//     } else {
-//         untrack(|| C::create_component(props))
-//     }
-// }
-
-// /// Alias to [`instantiate_component`]. For use in proc-macro output.
-// ///
-// /// The double underscores (`__`) are to prevent conflicts with other trait methods. This is
-// /// because we cannot use fully qualified syntax here because it prevents type inference.
-// #[doc(hidden)]
-// pub trait __InstantiateComponent<G: GenericNode, Props>: Component<G, Props> {
-//     /// Alias to [`instantiate_component`]. For use in proc-macro output.
-//     ///
-//     /// The double underscores (`__`) are to prevent conflicts with other trait methods. This is
-//     /// because we cannot use fully qualified syntax here because it prevents type inference.
-//     #[doc(hidden)]
-//     fn __instantiate_component(props: Props) -> View<G>;
-// }
-
-// impl<C, G, Props> __InstantiateComponent<G, Props> for C
-// where
-//     C: Component<G, Props>,
-//     G: GenericNode,
-// {
-//     #[inline(always)]
-//     fn __instantiate_component(props: Props) -> View<G> {
-//         instantiate_component::<G, Props, C>(props)
-//     }
-// }
+/// Instantiates a component.
+#[inline(always)]
+#[doc(hidden)]
+pub fn instantiate<G: GenericNode, Props>(
+    f: impl Fn(ScopeRef<'_, '_>, Props) -> View<G>,
+    ctx: ScopeRef,
+    props: Props,
+) -> View<G> {
+    if G::USE_HYDRATION_CONTEXT {
+        #[cfg(feature = "experimental-hydrate")]
+        return crate::utils::hydrate::hydrate_component(|| untrack(|| C::create_component(props)));
+        #[cfg(not(feature = "experimental-hydrate"))]
+        return untrack(|| f(ctx, props));
+    } else {
+        untrack(|| f(ctx, props))
+    }
+}

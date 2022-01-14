@@ -1,6 +1,7 @@
 use sycamore::prelude::*;
 
-fn App<G: Html>(ctx: ScopeRef, props: ()) -> View<G> {
+#[component]
+fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
     let state = ctx.create_signal(0i32);
     let increment = |_| state.set(*state.get() + 1);
     let decrement = |_| state.set(*state.get() - 1);
@@ -14,7 +15,9 @@ fn App<G: Html>(ctx: ScopeRef, props: ()) -> View<G> {
 }
 
 fn main() {
-    sycamore::render(|ctx| view! {
-        App()
+    sycamore::render(|ctx| {
+        view! {
+            App()
+        }
     });
 }

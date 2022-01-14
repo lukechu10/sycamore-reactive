@@ -1,6 +1,6 @@
 use sycamore::prelude::*;
 
-fn App<G: Html>(ctx: ScopeRef, props: ()) -> View<G> {
+fn App<G: Html>(_: ScopeRef, _: ()) -> View<G> {
     view! {
         p {
             "Hello World!"
@@ -9,7 +9,9 @@ fn App<G: Html>(ctx: ScopeRef, props: ()) -> View<G> {
 }
 
 fn main() {
-    sycamore::render(|ctx| view! {
-        App()
+    sycamore::render(|ctx| {
+        view! {
+            App()
+        }
     });
 }

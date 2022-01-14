@@ -41,11 +41,10 @@ pub fn node(input: TokenStream) -> TokenStream {
 /// To learn more about components, see the chapter on
 /// [components](https://sycamore-rs.netlify.app/docs/basics/components) in the Sycamore Book.
 #[proc_macro_attribute]
-pub fn component(attr: TokenStream, component: TokenStream) -> TokenStream {
-    let attr = parse_macro_input!(attr as component::ComponentFunctionName);
-    let component = parse_macro_input!(component as component::ComponentFunction);
+pub fn component(_attr: TokenStream, component: TokenStream) -> TokenStream {
+    let comp = parse_macro_input!(component as component::ComponentFunction);
 
-    component::component_impl(attr, component)
+    component::component_impl(comp)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
