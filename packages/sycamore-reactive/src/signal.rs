@@ -1,5 +1,6 @@
 //! Signals - The building blocks of reactivity.
 
+use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
 use crate::effect::EFFECTS;
@@ -309,6 +310,24 @@ impl<T> Deref for RcSignal<T> {
 /// For more details, check the documentation for [`RcSignal`].
 pub fn create_rc_signal<T>(value: T) -> RcSignal<T> {
     RcSignal(Rc::new(Signal::new(value)))
+}
+
+/* Display implementations */
+
+impl<T: Display> Display for RcSignal<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
+}
+impl<T: Display> Display for Signal<'_, '_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
+}
+impl<T: Display> Display for ReadSignal<'_, '_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
 }
 
 #[cfg(test)]
