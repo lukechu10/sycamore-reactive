@@ -1,12 +1,10 @@
-use std::mem;
-
 use proc_macro2::TokenStream;
 use quote::{quote_spanned, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::{Comma, Paren};
-use syn::{parenthesized, parse_quote, Expr, GenericArgument, Path, Result};
+use syn::{parenthesized, Expr, Path, Result};
 
 /// Components are identical to function calls.
 pub struct Component {
