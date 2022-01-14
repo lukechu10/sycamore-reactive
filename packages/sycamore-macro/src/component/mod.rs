@@ -33,7 +33,7 @@ impl Parse for ComponentFunction {
                     return Err(syn::Error::new_spanned(
                         sig,
                         "function must return `sycamore::view::View`",
-                    ))
+                    ));
                 };
 
                 let mut inputs = sig.inputs.into_iter();
@@ -43,7 +43,7 @@ impl Parse for ComponentFunction {
                     return Err(syn::Error::new_spanned(
                         arg,
                         "function components can't accept a receiver",
-                    ))
+                    ));
                 };
 
                 Ok(Self { f })

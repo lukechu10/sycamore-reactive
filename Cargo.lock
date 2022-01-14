@@ -81,6 +81,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "components"
+version = "0.1.0"
+dependencies = [
+ "sycamore",
+]
+
+[[package]]
 name = "context"
 version = "0.1.0"
 dependencies = [

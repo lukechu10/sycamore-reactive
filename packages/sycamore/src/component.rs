@@ -6,14 +6,14 @@ use crate::view::View;
 
 /// Trait that is implemented by components. Should not be implemented manually. Use the
 /// [`component`](sycamore_macro::component) macro instead.
-pub trait Component<G: GenericNode, Props> {
+pub trait Component<'a, G: GenericNode, Props: 'a> {
     /// Create a new component with an instance of the properties.
-    fn create_component(&self, ctx: ScopeRef, props: Props) -> View<G>;
+    fn create_component(&self, ctx: ScopeRef<'_, 'a>, props: Props) -> View<G>;
 }
 
-impl<G: GenericNode, Props, T> Component<G, Props> for T
+impl<'a, G: GenericNode, Props: 'a, T> Component<'a, G, Props> for T
 where
-    T: Fn(ScopeRef<'_, '_>, Props) -> View<G>,
+    T: Fn(ScopeRef, Props) -> View<G>,
 {
     fn create_component(&self, ctx: ScopeRef, props: Props) -> View<G> {
         self(ctx, props)
@@ -24,7 +24,7 @@ where
 #[inline(always)]
 #[doc(hidden)]
 pub fn instantiate<G: GenericNode, Props>(
-    f: impl Fn(ScopeRef<'_, '_>, Props) -> View<G>,
+    f: impl Fn(ScopeRef, Props) -> View<G>,
     ctx: ScopeRef,
     props: Props,
 ) -> View<G> {
