@@ -9,5 +9,6 @@ members = [
     "examples/components",
     "examples/context",
     "examples/counter",
+    "examples/iteration",
     "examples/hello-world",
 ]
