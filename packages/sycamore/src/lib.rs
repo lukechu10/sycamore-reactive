@@ -3,6 +3,7 @@ pub mod reactive {
     pub use sycamore_reactive::*;
 }
 pub mod component;
+pub mod flow;
 pub mod utils;
 pub mod view;
 
@@ -13,6 +14,7 @@ pub use sycamore_macro::*;
 /// The sycamore prelude.
 pub mod prelude {
     pub use crate::component::Component;
+    pub use crate::flow::*;
     pub use crate::generic_node::{GenericNode, Html};
     pub use crate::reactive::*;
     pub use crate::view::View;

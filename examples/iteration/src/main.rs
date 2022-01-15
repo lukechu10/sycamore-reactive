@@ -1,30 +1,40 @@
 use sycamore::prelude::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Cat {
+    id: &'static str,
+    name: &'static str,
+}
+
 #[component]
 fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
     let items = ctx.create_signal(vec![
-        view! { li { "Hello!" } },
-        view! { li { "I am an item in a fragment" } },
+        Cat {
+            id: "J---aiyznGQ",
+            name: "Keyboard Cat",
+        },
+        Cat {
+            id: "z_AbfPXTKms",
+            name: "Maru",
+        },
+        Cat {
+            id: "OUtn3pvWmpg",
+            name: "Henri The Existential Cat",
+        },
     ]);
 
-    let add_item = |_| {
-        items.set(
-            items
-                .get()
-                .as_ref()
-                .clone()
-                .into_iter()
-                .chain(Some(view! { li { "New item" } }))
-                .collect(),
-        );
-    };
+    let items = ctx.map_indexed(items, |ctx, &Cat { id, name } | view! {
+        li {
+            a(href=format!("https://www.youtube.com/watch?v={id}")) {
+                (name)
+            }
+        }
+    });
 
     view! {
-        div {
-            button(on:click=add_item) { "Add item" }
-            ul(class="items") {
-                (View::new_fragment((*items.get()).clone()))
-            }
+        p { "The famous cats of YouTube" }
+        ul {
+            (View::new_fragment(items.get().as_ref().clone()))
         }
     }
 }

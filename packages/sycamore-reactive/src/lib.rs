@@ -160,6 +160,20 @@ pub fn create_scope_immediate(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) {
 impl<'id, 'a> Scope<'id, 'a> {
     /// Create a new [`Signal`] under the current [`Scope`].
     /// The created signal lasts as long as the scope and cannot be used outside of the scope.
+    /// 
+    /// # Signal lifetime
+    ///
+    /// The lifetime of the returned signal is the same as the [`Scope`].
+    /// As such, the signal cannot escape the [`Scope`].
+    /// 
+    /// ```
+    /// # use sycamore_reactive::*;
+    /// let mut outer = None;
+    /// create_scope_immediate(|ctx| {
+    ///     let signal = ctx.create_signal(0);
+    ///     outer = Some(signal);
+    /// });
+    /// ```
     pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'id, 'a, T> {
         let signal = Signal::new(value);
         self.arena.alloc(signal)

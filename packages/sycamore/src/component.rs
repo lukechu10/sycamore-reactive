@@ -23,17 +23,17 @@ where
 /// Instantiates a component.
 #[inline(always)]
 #[doc(hidden)]
-pub fn instantiate<G: GenericNode, Props>(
-    f: impl Fn(ScopeRef, Props) -> View<G>,
-    ctx: ScopeRef,
+pub fn instantiate<'a, G: GenericNode, Props: 'a>(
+    f: &dyn Component<'a, G, Props>,
+    ctx: ScopeRef<'_, 'a>,
     props: Props,
 ) -> View<G> {
     if G::USE_HYDRATION_CONTEXT {
         #[cfg(feature = "experimental-hydrate")]
         return crate::utils::hydrate::hydrate_component(|| untrack(|| C::create_component(props)));
         #[cfg(not(feature = "experimental-hydrate"))]
-        return untrack(|| f(ctx, props));
+        return untrack(|| f.create_component(ctx, props));
     } else {
-        untrack(|| f(ctx, props))
+        untrack(|| f.create_component(ctx, props))
     }
 }
