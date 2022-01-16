@@ -166,7 +166,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// The lifetime of the returned signal is the same as the [`Scope`].
     /// As such, the signal cannot escape the [`Scope`].
     /// 
-    /// ```
+    /// ```compile_fail
     /// # use sycamore_reactive::*;
     /// let mut outer = None;
     /// create_scope_immediate(|ctx| {
