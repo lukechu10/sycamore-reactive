@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use crate::*;
 
-impl<'id, 'a> Scope<'id, 'a> {
+impl<'a> Scope<'a> {
     /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
     /// computed, meaning that it's value will only be updated when requested. Modifications to the
     /// input `Vec` are diffed using keys to prevent recomputing values that have not changed.
@@ -24,10 +24,10 @@ impl<'id, 'a> Scope<'id, 'a> {
     ///  _Credits: Based on TypeScript implementation in <https://github.com/solidjs/solid>_
     pub fn map_keyed<T, K, U>(
         &'a self,
-        list: &'a ReadSignal<'id, 'a, Vec<T>>,
+        list: &'a ReadSignal<Vec<T>>,
         map_fn: impl Fn(ScopeRef, &T) -> U + 'a,
         key_fn: impl Fn(&T) -> K + 'a,
-    ) -> &'a ReadSignal<'id, 'a, Vec<U>>
+    ) -> &'a ReadSignal<Vec<U>>
     where
         T: Eq + Clone + 'a,
         K: Eq + Hash,
@@ -59,7 +59,7 @@ impl<'id, 'a> Scope<'id, 'a> {
                         let tmp = Rc::clone(&tmp);
                         let map_fn = Rc::clone(&map_fn);
                         move |ctx| {
-                            *tmp.borrow_mut() = Some(map_fn(ctx, &new_item));
+                            *tmp.borrow_mut() = Some(map_fn(&ctx, &new_item));
                         }
                     });
                     mapped.push(tmp.borrow().clone().unwrap());
@@ -159,7 +159,7 @@ impl<'id, 'a> Scope<'id, 'a> {
                             let map_fn = Rc::clone(&map_fn);
                             let new_item = new_items[j].clone();
                             move |ctx| {
-                                *tmp.borrow_mut() = Some(map_fn(ctx, &new_item));
+                                *tmp.borrow_mut() = Some(map_fn(&ctx, &new_item));
                             }
                         });
 
@@ -206,9 +206,9 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// * `map_fn` - A closure that maps from the input type to the output type.
     pub fn map_indexed<T, U>(
         &'a self,
-        list: &'a ReadSignal<'id, 'a, Vec<T>>,
+        list: &'a ReadSignal<Vec<T>>,
         map_fn: impl Fn(ScopeRef, &T) -> U + 'a,
-    ) -> &'a ReadSignal<'id, 'a, Vec<U>>
+    ) -> &'a ReadSignal<Vec<U>>
     where
         T: PartialEq + Clone,
         U: Clone + 'a,
@@ -255,7 +255,7 @@ impl<'id, 'a> Scope<'id, 'a> {
                                 // self.create_child_scope.
                                 // ptr is still accessible after self.create_child_scope and
                                 // therefore lives long enough.
-                                (*ptr).write(map_fn(ctx, &new_item));
+                                (*ptr).write(map_fn(&ctx, &new_item));
                             }
                         });
                         if item.is_none() {

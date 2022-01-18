@@ -2,7 +2,7 @@
 
 use crate::*;
 
-impl<'id, 'a> Scope<'id, 'a> {
+impl<'a> Scope<'a> {
     /// Provides a context in the current [`Scope`]. The context can later be accessed by using
     /// [`use_context`](Self::use_context) lower in the scope hierarchy.
     ///
@@ -23,7 +23,7 @@ impl<'id, 'a> Scope<'id, 'a> {
 
     /// Tries to get a context value of the given type. If no context with the right type found,
     /// returns `None`. For a panicking version, see [`use_context`](Self::use_context).
-    pub fn try_use_context<T: 'static>(&'a self) -> Option<DataRef<'id, 'a, T>> {
+    pub fn try_use_context<T: 'static>(&'a self) -> Option<&'a T> {
         let type_id = TypeId::of::<T>();
         let this = Some(self);
         while let Some(current) = this {
@@ -34,8 +34,7 @@ impl<'id, 'a> Scope<'id, 'a> {
                 // - 'a is variant because it is an immutable reference.
                 let value = unsafe { &**value };
                 let value = value.downcast_ref::<T>().unwrap();
-                let data = DataRef::new(value);
-                return Some(data);
+                return Some(value);
             }
         }
         None
@@ -47,7 +46,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// This method panics if the context cannot be found in the current scope hierarchy.
     /// For a non-panicking version, see [`try_use_context`](Self::try_use_context).
     #[track_caller]
-    pub fn use_context<T: 'static>(&'a self) -> DataRef<'id, 'a, T> {
+    pub fn use_context<T: 'static>(&'a self) -> &'a T {
         self.try_use_context().expect("context not found for type")
     }
 }

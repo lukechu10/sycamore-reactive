@@ -6,23 +6,23 @@ use std::ops::Deref;
 use crate::effect::EFFECTS;
 use crate::*;
 
-type WeakEffectCallback<'a> = Weak<RefCell<dyn FnMut() + 'a>>;
-type EffectCallbackPtr<'a> = *const RefCell<dyn FnMut() + 'a>;
+type WeakEffectCallback = Weak<RefCell<dyn FnMut()>>;
+type EffectCallbackPtr = *const RefCell<dyn FnMut()>;
 
 /// A struct for managing subscriptions to signals.
 #[derive(Default)]
-pub struct SignalEmitter<'a>(RefCell<IndexMap<EffectCallbackPtr<'a>, WeakEffectCallback<'a>>>);
+pub struct SignalEmitter(RefCell<IndexMap<EffectCallbackPtr, WeakEffectCallback>>);
 
-impl<'a> SignalEmitter<'a> {
+impl SignalEmitter {
     /// Adds a callback to the subscriber list. If the callback is already a subscriber, does
     /// nothing.
-    pub(crate) fn subscribe(&self, cb: WeakEffectCallback<'a>) {
+    pub(crate) fn subscribe(&self, cb: WeakEffectCallback) {
         self.0.borrow_mut().insert(cb.as_ptr(), cb);
     }
 
     /// Removes a callback from the subscriber list. If the callback is not a subscriber, does
     /// nothing.
-    pub(crate) fn unsubscribe(&self, cb: EffectCallbackPtr<'a>) {
+    pub(crate) fn unsubscribe(&self, cb: EffectCallbackPtr) {
         self.0.borrow_mut().remove(&cb);
     }
 
@@ -59,13 +59,12 @@ impl<'a> SignalEmitter<'a> {
 }
 
 /// A read-only [`Signal`].
-pub struct ReadSignal<'id, 'a, T> {
+pub struct ReadSignal<T> {
     value: RefCell<Rc<T>>,
-    emitter: SignalEmitter<'a>,
-    _phantom: InvariantLifetime<'id>,
+    emitter: SignalEmitter,
 }
 
-impl<'id, 'a, T> ReadSignal<'id, 'a, T> {
+impl<T> ReadSignal<T> {
     /// Get the current value of the state. When called inside a reactive scope, calling this will
     /// add itself to the scope's dependencies.
     ///
@@ -124,11 +123,11 @@ impl<'id, 'a, T> ReadSignal<'id, 'a, T> {
     /// # });
     /// ```
     #[must_use]
-    pub fn map<U>(
+    pub fn map<'a, U>(
         &'a self,
-        ctx: ScopeRef<'id, 'a>,
+        ctx: ScopeRef<'a>,
         mut f: impl FnMut(&T) -> U + 'a,
-    ) -> &'a ReadSignal<'id, 'a, U> {
+    ) -> &'a ReadSignal<U> {
         ctx.create_memo(move || f(&self.get()))
     }
 
@@ -142,15 +141,14 @@ impl<'id, 'a, T> ReadSignal<'id, 'a, T> {
 }
 
 /// Reactive state that can be updated and subscribed to.
-pub struct Signal<'id, 'a, T>(ReadSignal<'id, 'a, T>);
+pub struct Signal<T>(ReadSignal<T>);
 
-impl<'id, 'a, T> Signal<'id, 'a, T> {
+impl<T> Signal<T> {
     /// Create a new [`Signal`] with the specified value.
     pub(crate) fn new(value: T) -> Self {
         Self(ReadSignal {
             value: RefCell::new(Rc::new(value)),
             emitter: Default::default(),
-            _phantom: InvariantLifetime::default(),
         })
     }
 
@@ -194,22 +192,14 @@ impl<'id, 'a, T> Signal<'id, 'a, T> {
     /// assert_eq!(*state(), 1);
     /// # });
     /// ```
-    pub fn split(
-        &'a self,
-    ) -> (
-        Rc<Data<'id, impl Fn() -> Rc<T> + Copy + 'a>>,
-        Rc<Data<'id, impl Fn(T) + Copy + 'a>>,
-    ) {
-        // SAFETY: This is safe because the returned closures are wrapped in Data<'id, _> which
-        // re-adds the 'id lifetime back.
-        let this: &'a Signal<'a, 'a, T> = unsafe { std::mem::transmute(self) };
-        let getter = move || this.get();
-        let setter = move |x| this.set(x);
-        (Rc::new(Data::new(getter)), Rc::new(Data::new(setter)))
+    pub fn split<'a>(&'a self) -> (impl Fn() -> Rc<T> + Copy + 'a, impl Fn(T) + Copy + 'a) {
+        let getter = move || self.get();
+        let setter = move |x| self.set(x);
+        (getter, setter)
     }
 }
 
-impl<'id, 'a, T: Default> Signal<'id, 'a, T> {
+impl<T: Default> Signal<T> {
     /// Take the current value out and replace it with the default value.
     ///
     /// This will notify and update any effects and memos that depend on this value.
@@ -228,8 +218,8 @@ impl<'id, 'a, T: Default> Signal<'id, 'a, T> {
     }
 }
 
-impl<'id, 'a, T> Deref for Signal<'id, 'a, T> {
-    type Target = ReadSignal<'id, 'a, T>;
+impl<'a, T> Deref for Signal<T> {
+    type Target = ReadSignal<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -246,12 +236,12 @@ impl<'a, T> AnyReadSignal<'a> for RcSignal<T> {
         self.deref().deref().track();
     }
 }
-impl<'a, T> AnyReadSignal<'a> for Signal<'_, 'a, T> {
+impl<'a, T> AnyReadSignal<'a> for Signal<T> {
     fn track(&self) {
         self.deref().track();
     }
 }
-impl<'a, T> AnyReadSignal<'a> for ReadSignal<'_, 'a, T> {
+impl<'a, T> AnyReadSignal<'a> for ReadSignal<T> {
     fn track(&self) {
         self.track();
     }
@@ -295,10 +285,10 @@ impl<'a, T> AnyReadSignal<'a> for ReadSignal<'_, 'a, T> {
 /// });
 /// ```
 #[derive(Clone)]
-pub struct RcSignal<T>(Rc<Signal<'static, 'static, T>>);
+pub struct RcSignal<T>(Rc<Signal<T>>);
 
 impl<T> Deref for RcSignal<T> {
-    type Target = Signal<'static, 'static, T>;
+    type Target = Signal<T>;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
@@ -319,12 +309,12 @@ impl<T: Display> Display for RcSignal<T> {
         self.get().fmt(f)
     }
 }
-impl<T: Display> Display for Signal<'_, '_, T> {
+impl<T: Display> Display for Signal<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.get().fmt(f)
     }
 }
-impl<T: Display> Display for ReadSignal<'_, '_, T> {
+impl<T: Display> Display for ReadSignal<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.get().fmt(f)
     }

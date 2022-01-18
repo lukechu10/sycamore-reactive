@@ -76,7 +76,7 @@ fn insert_expression<G: GenericNode>(
                     value = f.get();
                 }
                 insert_expression(
-                    ctx,
+                    &ctx,
                     &parent,
                     &value,
                     current.clone(),
@@ -100,7 +100,7 @@ fn insert_expression<G: GenericNode>(
                     // This will call normalize_incoming_fragment again, but this time with the
                     // unwrap_fragment arg set to true.
                     insert_expression(
-                        ctx,
+                        &ctx,
                         &parent,
                         &value,
                         current.clone(),

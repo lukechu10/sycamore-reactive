@@ -9,7 +9,6 @@ mod iter;
 mod memo;
 mod signal;
 
-pub use arena::*;
 pub use effect::*;
 pub use signal::*;
 
@@ -17,8 +16,10 @@ use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::rc::{Rc, Weak};
 
+use arena::*;
 use indexmap::IndexMap;
 use slotmap::{DefaultKey, SlotMap};
 
@@ -44,7 +45,7 @@ struct InvariantLifetime<'id>(PhantomData<&'id mut &'id ()>);
 /// * `'a` - The actual lifetime of the scope and all data allocated on it. This allows passing in
 ///   data from an outer scope into an inner scope. This lifetime is also invariant because it is
 ///   used within an cell.
-pub struct Scope<'id, 'a> {
+pub struct Scope<'a> {
     /// Effect functions created on the [`Scope`].
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
     /// Cleanup functions.
@@ -52,7 +53,7 @@ pub struct Scope<'id, 'a> {
     /// Child scopes.
     ///
     /// The raw pointer is owned by this field.
-    child_scopes: RefCell<SlotMap<DefaultKey, *mut Scope<'id, 'a>>>,
+    child_scopes: RefCell<SlotMap<DefaultKey, *mut Scope<'a>>>,
     /// An arena allocator for allocating refs and signals.
     arena: ScopeArena<'a>,
     /// Contexts that are allocated on the current [`Scope`].
@@ -63,12 +64,12 @@ pub struct Scope<'id, 'a> {
     /// A pointer to the parent scope.
     /// # Safety
     /// The parent scope does not actually have the right lifetime.
-    parent: Option<*const Scope<'id, 'a>>,
-    // Make sure that both 'id and 'a are invariant.
-    _phantom: (InvariantLifetime<'id>, InvariantLifetime<'a>),
+    parent: Option<*const Scope<'a>>,
+    // Make sure that 'a is invariant.
+    _phantom: InvariantLifetime<'a>,
 }
 
-impl<'id, 'a> Scope<'id, 'a> {
+impl<'a> Scope<'a> {
     /// Create a new [`Scope`]. This function is deliberately not `pub` because it should not be
     /// possible to access a [`Scope`] directly on the stack.
     pub(crate) fn new() -> Self {
@@ -90,7 +91,27 @@ impl<'id, 'a> Scope<'id, 'a> {
 }
 
 /// A reference to a [`Scope`].
-pub type ScopeRef<'id, 'a> = &'a Scope<'id, 'a>;
+pub type ScopeRef<'a> = &'a Scope<'a>;
+
+/// A [`ScopeRef`] that is bounded by the `'bound` lifetime. This is used to bypass restrictions on
+/// HRTBs (Higher Ranked Trait Bounds) so that `'a` can be higher ranked while still be bounded by
+/// the `'bound` lifetime.
+pub struct BoundedScopeRef<'a, 'bound: 'a>(ScopeRef<'a>, PhantomData<&'bound ()>);
+
+impl<'a, 'bound> BoundedScopeRef<'a, 'bound> {
+    /// Create a new [`BoundedScopeRef`] from a [`ScopeRef`].
+    pub fn new(ctx: ScopeRef<'a>) -> Self {
+        Self(ctx, PhantomData)
+    }
+}
+
+impl<'a, 'bound> Deref for BoundedScopeRef<'a, 'bound> {
+    type Target = ScopeRef<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// Creates a reactive scope.
 ///
@@ -123,7 +144,7 @@ pub type ScopeRef<'id, 'a> = &'a Scope<'id, 'a>;
 /// disposer();
 /// ```
 #[must_use = "not calling the disposer function will result in a memory leak"]
-pub fn create_scope(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) -> impl FnOnce() {
+pub fn create_scope(f: impl for<'a> FnOnce(ScopeRef<'a>)) -> impl FnOnce() {
     let ctx = Scope::new();
     let boxed = Box::new(ctx);
     let ptr = Box::into_raw(boxed);
@@ -152,20 +173,20 @@ pub fn create_scope(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) -> impl FnOn
 ///     // ...
 /// }))(); // Call the disposer function immediately
 /// ```
-pub fn create_scope_immediate(f: impl for<'id, 'a> FnOnce(ScopeRef<'id, 'a>)) {
+pub fn create_scope_immediate(f: impl for<'a> FnOnce(ScopeRef<'a>)) {
     let disposer = create_scope(f);
     disposer();
 }
 
-impl<'id, 'a> Scope<'id, 'a> {
+impl<'a> Scope<'a> {
     /// Create a new [`Signal`] under the current [`Scope`].
     /// The created signal lasts as long as the scope and cannot be used outside of the scope.
-    /// 
+    ///
     /// # Signal lifetime
     ///
     /// The lifetime of the returned signal is the same as the [`Scope`].
     /// As such, the signal cannot escape the [`Scope`].
-    /// 
+    ///
     /// ```compile_fail
     /// # use sycamore_reactive::*;
     /// let mut outer = None;
@@ -174,7 +195,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     ///     outer = Some(signal);
     /// });
     /// ```
-    pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<'id, 'a, T> {
+    pub fn create_signal<T>(&'a self, value: T) -> &'a Signal<T> {
         let signal = Signal::new(value);
         self.arena.alloc(signal)
     }
@@ -200,9 +221,8 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// let _ = outer.unwrap();
     /// # });
     /// ```
-    pub fn create_ref<T: 'a>(&'a self, value: T) -> DataRef<'id, 'a, T> {
-        let r = self.arena.alloc(value);
-        DataRef::new(r)
+    pub fn create_ref<T: 'a>(&'a self, value: T) -> &'a T {
+        self.arena.alloc(value)
     }
 
     /// Adds a callback that is called when the scope is destroyed.
@@ -255,10 +275,9 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// //   ^^^^^ -> and remains accessible outside the closure.
     /// # });
     /// ```
-    pub fn create_child_scope<'b, F>(&'a self, f: F) -> impl FnOnce() + 'a
+    pub fn create_child_scope<F>(&'a self, f: F) -> impl FnOnce() + 'a
     where
-        'a: 'b,
-        F: for<'child_id> FnOnce(ScopeRef<'child_id, 'b>),
+        F: for<'child_lifetime> FnOnce(BoundedScopeRef<'child_lifetime, 'a>),
     {
         let mut child: Scope = Scope::new();
         // SAFETY: The only fields that are accessed on self from child is `context` which does not
@@ -274,16 +293,15 @@ impl<'id, 'a> Scope<'id, 'a> {
             // safely transmute the lifetime.
             .insert(unsafe { std::mem::transmute(ptr) });
 
-        // SAFETY: no fields with lifetime 'id are accessed through `this`.
-        let this: &'a Scope<'a, 'a> = unsafe { std::mem::transmute(self) };
         // SAFETY: the address of the Ctx lives as long as 'a because:
         // - It is allocated on the heap and therefore has a stable address.
         // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until
         //   Self is dropped.
-        f(unsafe { &*ptr });
-        //           ^^^ -> `ptr` is still accessible here after the call to f.
+        f(BoundedScopeRef::new(unsafe { &*ptr }));
+        //                                    ^^^ -> `ptr` is still accessible here after the call
+        // to f.
         move || unsafe {
-            let ctx = this.child_scopes.borrow_mut().remove(key).unwrap();
+            let ctx = self.child_scopes.borrow_mut().remove(key).unwrap();
             // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer
             // than 'a.
             let ctx = Box::from_raw(ctx);
@@ -341,7 +359,7 @@ impl<'id, 'a> Scope<'id, 'a> {
     }
 }
 
-impl Drop for Scope<'_, '_> {
+impl Drop for Scope<'_> {
     fn drop(&mut self) {
         // SAFETY: scope cannot be dropped while it is borrowed inside closure.
         unsafe { self.dispose() };

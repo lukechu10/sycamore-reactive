@@ -125,7 +125,7 @@ pub trait GenericNode: fmt::Debug + Clone + PartialEq + Eq + Hash + 'static {
     /// Add a event handler to the event `name`.
     fn event<'a>(
         &self,
-        ctx: ScopeRef<'_, 'a>,
+        ctx: ScopeRef<'a>,
         name: &str,
         handler: Box<dyn Fn(Self::EventType) + 'a>,
     );

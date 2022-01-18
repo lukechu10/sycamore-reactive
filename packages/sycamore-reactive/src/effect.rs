@@ -21,7 +21,7 @@ pub(crate) struct EffectState<'a> {
 }
 
 /// Implements reference equality for [`AnySignal`]s.
-pub(crate) struct EffectDependency<'a>(&'a SignalEmitter<'a>);
+pub(crate) struct EffectDependency<'a>(&'a SignalEmitter);
 impl<'a> std::cmp::PartialEq for EffectDependency<'a> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
@@ -30,7 +30,7 @@ impl<'a> std::cmp::PartialEq for EffectDependency<'a> {
 impl<'a> std::cmp::Eq for EffectDependency<'a> {}
 impl<'a> std::hash::Hash for EffectDependency<'a> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (self.0 as *const SignalEmitter<'a>).hash(state);
+        (self.0 as *const SignalEmitter).hash(state);
     }
 }
 
@@ -39,18 +39,19 @@ impl<'a> EffectState<'a> {
     /// Should be called when re-executing an effect to recreate all dependencies.
     pub fn clear_dependencies(&mut self) {
         for dependency in &self.dependencies {
-            dependency.0.unsubscribe(Rc::as_ptr(&self.cb));
+            // SAFETY: TODO
+            dependency.0.unsubscribe(unsafe { std::mem::transmute(Rc::as_ptr(&self.cb)) });
         }
         self.dependencies.clear();
     }
 
     /// Add a dependency to the effect.
-    pub fn add_dependency(&mut self, signal: &'a SignalEmitter<'a>) {
+    pub fn add_dependency(&mut self, signal: &'a SignalEmitter) {
         self.dependencies.insert(EffectDependency(signal));
     }
 }
 
-impl<'id, 'a> Scope<'id, 'a> {
+impl<'a> Scope<'a> {
     /// Creates an effect on signals used inside the effect closure.
     ///
     /// # Example
@@ -104,7 +105,8 @@ impl<'id, 'a> Scope<'id, 'a> {
                     // we need to add backlinks from the signal to the effect, so that
                     // updating the signal will trigger the effect.
                     for emitter in &boxed.dependencies {
-                        emitter.0.subscribe(Rc::downgrade(&boxed.cb));
+                        // SAFETY: TODO
+                        emitter.0.subscribe(unsafe { std::mem::transmute(Rc::downgrade(&boxed.cb)) });
                     }
 
                     // Get the effect state back into the Rc
@@ -148,10 +150,9 @@ impl<'id, 'a> Scope<'id, 'a> {
     /// });
     /// # });
     /// ```
-    pub fn create_effect_scoped<'b, F>(&'a self, mut f: F)
+    pub fn create_effect_scoped<F>(&'a self, mut f: F)
     where
-        'a: 'b,
-        F: for<'child_id> FnMut(ScopeRef<'child_id, 'b>) + 'a,
+        F: for<'child_lifetime> FnMut(BoundedScopeRef<'child_lifetime, 'a>) + 'a,
     {
         let mut disposer: Option<Box<dyn FnOnce()>> = None;
         self.create_effect(move || {

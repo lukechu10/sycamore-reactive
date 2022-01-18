@@ -254,12 +254,7 @@ impl GenericNode for DomNode {
         self.node.unchecked_ref::<Element>().remove();
     }
 
-    fn event<'a>(
-        &self,
-        ctx: ScopeRef<'_, 'a>,
-        name: &str,
-        handler: Box<dyn Fn(Self::EventType) + 'a>,
-    ) {
+    fn event<'a>(&self, ctx: ScopeRef<'a>, name: &str, handler: Box<dyn Fn(Self::EventType) + 'a>) {
         // SAFETY: extend lifetime because the closure is dropped when the ctx is disposed,
         // preventing the handler from ever being accessed after its lifetime.
         let handler: Box<dyn Fn(Self::EventType) + 'static> =

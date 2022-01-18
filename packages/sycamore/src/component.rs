@@ -8,7 +8,7 @@ use crate::view::View;
 /// [`component`](sycamore_macro::component) macro instead.
 pub trait Component<'a, G: GenericNode, Props: 'a> {
     /// Create a new component with an instance of the properties.
-    fn create_component(&self, ctx: ScopeRef<'_, 'a>, props: Props) -> View<G>;
+    fn create_component(&self, ctx: ScopeRef<'a>, props: Props) -> View<G>;
 }
 
 impl<'a, G: GenericNode, Props: 'a, T> Component<'a, G, Props> for T
@@ -25,7 +25,7 @@ where
 #[doc(hidden)]
 pub fn instantiate<'a, G: GenericNode, Props: 'a>(
     f: &dyn Component<'a, G, Props>,
-    ctx: ScopeRef<'_, 'a>,
+    ctx: ScopeRef<'a>,
     props: Props,
 ) -> View<G> {
     if G::USE_HYDRATION_CONTEXT {
