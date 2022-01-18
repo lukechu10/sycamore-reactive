@@ -23,18 +23,29 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
         },
     ]);
 
-    let items = ctx.map_indexed(items, |ctx, &Cat { id, name } | view! {
-        li {
-            a(href=format!("https://www.youtube.com/watch?v={id}")) {
-                (name)
-            }
-        }
-    });
+    // let items = ctx.map_indexed(items, |ctx, &Cat { id, name }| {
+    //     view! {
+    //         li {
+    //             a(href=format!("https://www.youtube.com/watch?v={id}")) {
+    //                 (name)
+    //             }
+    //         }
+    //     }
+    // });
 
     view! {
         p { "The famous cats of YouTube" }
         ul {
-            (View::new_fragment(items.get().as_ref().clone()))
+            Indexed(IndexedProps {
+                iterable: items,
+                template: |ctx, &Cat { id, name } | view! {
+                    li {
+                        a(href=format!("https://www.youtube.com/watch?v={id}")) {
+                            (name)
+                        }
+                    }
+                }
+            })
         }
     }
 }

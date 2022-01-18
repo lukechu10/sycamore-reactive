@@ -7,6 +7,9 @@ pub mod flow;
 pub mod utils;
 pub mod view;
 
+/// Alias self to sycamore for proc-macros.
+extern crate self as sycamore;
+
 #[cfg(feature = "dom")]
 pub use generic_node::dom_node::{render, render_to};
 pub use sycamore_macro::*;
