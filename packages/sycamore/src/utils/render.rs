@@ -24,7 +24,7 @@ use crate::view::{View, ViewType};
 ///   Even if the node to be inserted is the only child of `parent`, `multi` can still be set to
 ///   `false` but forgoes the optimizations.
 pub fn insert<G: GenericNode>(
-    ctx: ScopeRef,
+    ctx: ScopeRef<'_>,
     parent: &G,
     accessor: View<G>,
     initial: Option<View<G>>,
@@ -35,7 +35,7 @@ pub fn insert<G: GenericNode>(
 }
 
 fn insert_expression<G: GenericNode>(
-    ctx: ScopeRef,
+    ctx: ScopeRef<'_>,
     parent: &G,
     value: &View<G>,
     mut current: Option<View<G>>,

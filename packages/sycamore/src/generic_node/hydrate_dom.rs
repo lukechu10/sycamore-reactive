@@ -8,7 +8,7 @@ use wasm_bindgen::JsCast;
 use web_sys::Node;
 
 use crate::generic_node::{DomNode, GenericNode, Html};
-use crate::reactive::{create_scope, ReactiveScope};
+use crate::reactive::*;
 use crate::utils::hydrate::web::get_next_element;
 use crate::utils::hydrate::{hydration_completed, with_hydration_context};
 use crate::utils::render::insert;
@@ -205,8 +205,8 @@ impl GenericNode for HydrateNode {
     }
 
     #[inline]
-    fn event(&self, name: &str, handler: Box<dyn Fn(Self::EventType)>) {
-        self.node.event(name, handler);
+    fn event<'a>(&self, ctx: ScopeRef<'a>, name: &str, handler: Box<dyn Fn(Self::EventType) + 'a>) {
+        self.node.event(ctx, name, handler);
     }
 
     #[inline]
@@ -237,7 +237,7 @@ impl Html for HydrateNode {
 /// For rendering without hydration, use [`render`] instead.
 ///
 /// _This API requires the following crate features to be activated: `experimental-hydrate`, `dom`_
-pub fn hydrate(template: impl FnOnce() -> View<HydrateNode>) {
+pub fn hydrate(template: impl FnOnce(ScopeRef<'_>) -> View<HydrateNode>) {
     let window = web_sys::window().unwrap_throw();
     let document = window.document().unwrap_throw();
 
@@ -250,14 +250,9 @@ pub fn hydrate(template: impl FnOnce() -> View<HydrateNode>) {
 /// For rendering without hydration, use [`render`] instead.
 ///
 /// _This API requires the following crate features to be activated: `experimental-hydrate`, `dom`_
-pub fn hydrate_to(template: impl FnOnce() -> View<HydrateNode>, parent: &Node) {
-    let scope = hydrate_get_scope(template, parent);
-
-    thread_local! {
-        static GLOBAL_SCOPES: std::cell::RefCell<Vec<ReactiveScope>> = std::cell::RefCell::new(Vec::new());
-    }
-
-    GLOBAL_SCOPES.with(|global_scopes| global_scopes.borrow_mut().push(scope));
+pub fn hydrate_to(view: impl FnOnce(ScopeRef<'_>) -> View<HydrateNode>, parent: &Node) {
+    // Do not call the destructor function, effectively leaking the scope.
+    let _ = hydrate_get_scope(view, parent);
 }
 
 /// Render a [`View`] under a `parent` node, in a way that can be cleaned up.
@@ -267,14 +262,15 @@ pub fn hydrate_to(template: impl FnOnce() -> View<HydrateNode>, parent: &Node) {
 ///
 /// _This API requires the following crate features to be activated: `experimental-hydrate`, `dom`_
 #[must_use = "please hold onto the ReactiveScope until you want to clean things up, or use render_to() instead"]
-pub fn hydrate_get_scope(
-    template: impl FnOnce() -> View<HydrateNode>,
-    parent: &Node,
-) -> ReactiveScope {
-    create_scope(|| {
+pub fn hydrate_get_scope<'a>(
+    view: impl FnOnce(ScopeRef<'_>) -> View<HydrateNode> + 'a,
+    parent: &'a Node,
+) -> impl FnOnce() + 'a {
+    create_scope(|ctx| {
         insert(
+            ctx,
             &HydrateNode::from_web_sys(parent.clone()),
-            with_hydration_context(template),
+            with_hydration_context(|| view(ctx)),
             None,
             None,
             false,

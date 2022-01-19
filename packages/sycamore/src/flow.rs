@@ -5,7 +5,7 @@ use crate::prelude::*;
 /// Props for [`Keyed`].
 pub struct KeyedProps<'a, T, F, G: GenericNode, K, Key>
 where
-    F: Fn(ScopeRef, &T) -> View<G> + 'a,
+    F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,
     K: Fn(&T) -> Key + 'a,
     Key: Clone + Hash + Eq,
     T: Clone + PartialEq,
@@ -26,7 +26,7 @@ pub fn Keyed<'a, G: GenericNode, T, F, K, Key>(
     props: KeyedProps<'a, T, F, G, K, Key>,
 ) -> View<G>
 where
-    F: Fn(ScopeRef, &T) -> View<G> + 'a,
+    F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,
     K: Fn(&T) -> Key + 'a,
     Key: Clone + Hash + Eq,
     T: Clone + Eq,
@@ -44,7 +44,7 @@ where
 /// Props for [`Indexed`].
 pub struct IndexedProps<'a, G: GenericNode, T, F>
 where
-    F: Fn(ScopeRef, &T) -> View<G> + 'a,
+    F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,
 {
     pub iterable: &'a ReadSignal<Vec<T>>,
     pub template: F,
@@ -62,7 +62,7 @@ pub fn Indexed<'a, G: GenericNode, T, F>(
 ) -> View<G>
 where
     T: Clone + PartialEq,
-    F: Fn(ScopeRef, &T) -> View<G> + 'a,
+    F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,
 {
     let IndexedProps { iterable, template } = props;
 

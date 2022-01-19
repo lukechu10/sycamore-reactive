@@ -293,20 +293,20 @@ impl Html for DomNode {
 /// Alias for [`render_to`] with `parent` being the `<body>` tag.
 ///
 /// _This API requires the following crate features to be activated: `dom`_
-pub fn render(template: impl FnOnce(ScopeRef) -> View<DomNode>) {
+pub fn render(view: impl FnOnce(ScopeRef<'_>) -> View<DomNode>) {
     let window = web_sys::window().unwrap_throw();
     let document = window.document().unwrap_throw();
 
-    render_to(template, &document.body().unwrap_throw());
+    render_to(view, &document.body().unwrap_throw());
 }
 
 /// Render a [`View`] under a `parent` node.
 /// For rendering under the `<body>` tag, use [`render`] instead.
 ///
 /// _This API requires the following crate features to be activated: `dom`_
-pub fn render_to(template: impl FnOnce(ScopeRef) -> View<DomNode>, parent: &Node) {
+pub fn render_to(view: impl FnOnce(ScopeRef<'_>) -> View<DomNode>, parent: &Node) {
     // Do not call the destructor function, effectively leaking the scope.
-    let _ = render_get_scope(template, parent);
+    let _ = render_get_scope(view, parent);
 }
 
 /// Render a [`View`] under a `parent` node, in a way that can be cleaned up.
@@ -321,14 +321,14 @@ pub fn render_to(template: impl FnOnce(ScopeRef) -> View<DomNode>, parent: &Node
 /// _This API requires the following crate features to be activated: `dom`_
 #[must_use = "please hold onto the ReactiveScope until you want to clean things up, or use render_to() instead"]
 pub fn render_get_scope<'a>(
-    template: impl FnOnce(ScopeRef) -> View<DomNode> + 'a,
+    view: impl FnOnce(ScopeRef<'_>) -> View<DomNode> + 'a,
     parent: &'a Node,
 ) -> impl FnOnce() + 'a {
     create_scope(|ctx| {
         insert(
             ctx,
             &DomNode::from_web_sys(parent.clone()),
-            template(ctx),
+            view(ctx),
             None,
             None,
             false,

@@ -156,8 +156,8 @@ impl ToTokens for Element {
                         // If __el is a HydrateNode, use hydrate::web::get_next_marker as initial node value.
                         let initial = if cfg!(feature = "experimental-hydrate") {
                             quote! {
-                                if ::std::any::Any::type_id(&__el) == ::std::any::TypeId::of::<::sycamore::HydrateNode>() {
-                                    let __el = <dyn ::std::any::Any>::downcast_ref::<::sycamore::HydrateNode>(&__el).unwrap();
+                                if ::std::any::Any::type_id(&__el) == ::std::any::TypeId::of::<::sycamore::generic_node::HydrateNode>() {
+                                    let __el = <dyn ::std::any::Any>::downcast_ref::<::sycamore::generic_node::HydrateNode>(&__el).unwrap();
                                     let __initial = ::sycamore::utils::hydrate::web::get_next_marker(&__el.inner_element());
                                     // Do not drop the HydrateNode because it will be cast into a GenericNode.
                                     let __initial = ::std::mem::ManuallyDrop::new(__initial);
@@ -180,7 +180,7 @@ impl ToTokens for Element {
                             // In addition, if there is only 1 child, there is no need for start and end markers.
                             match child {
                                 HtmlTree::Component(component) => quote_spanned! { component.span()=>
-                                    if ::std::any::Any::type_id(&__el) == ::std::any::TypeId::of::<::sycamore::SsrNode>() {
+                                    if ::std::any::Any::type_id(&__el) == ::std::any::TypeId::of::<::sycamore::generic_node::SsrNode>() {
                                         ::sycamore::generic_node::GenericNode::append_child(
                                             &__el,
                                             &::sycamore::generic_node::GenericNode::marker_with_text("#"),
@@ -205,7 +205,7 @@ impl ToTokens for Element {
                                 HtmlTree::Splice(splice) => quote_spanned! { splice.span()=>
                                     // TODO: clippy bug that is not yet fixed on stable.
                                     #[allow(clippy::suspicious_else_formatting)]
-                                    if ::std::any::Any::type_id(&__el) == ::std::any::TypeId::of::<::sycamore::SsrNode>() {
+                                    if ::std::any::Any::type_id(&__el) == ::std::any::TypeId::of::<::sycamore::generic_node::SsrNode>() {
                                         ::sycamore::generic_node::GenericNode::append_child(
                                             &__el,
                                             &::sycamore::generic_node::GenericNode::marker_with_text("#"),
