@@ -39,6 +39,7 @@ pub mod reactive {
 }
 pub mod component;
 pub mod flow;
+pub mod noderef;
 pub mod utils;
 pub mod view;
 
@@ -62,7 +63,7 @@ pub mod prelude {
 
     pub use crate::flow::*;
     pub use crate::generic_node::{GenericNode, Html};
-    // pub use crate::noderef::NodeRef;
+    pub use crate::noderef::NodeRef;
     pub use crate::reactive::*;
     pub use crate::view::View;
 
