@@ -11,4 +11,5 @@ members = [
     "examples/counter",
     "examples/iteration",
     "examples/hello-world",
+    "examples/ssr",
 ]

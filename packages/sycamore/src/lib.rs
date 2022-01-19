@@ -42,8 +42,13 @@ pub mod flow;
 pub mod utils;
 pub mod view;
 
+#[cfg(feature = "ssr")]
+pub use crate::generic_node::render_to_string;
+#[cfg(all(feature = "dom", feature = "experimental-hydrate"))]
+pub use generic_node::{hydrate, hydrate_get_scope, hydrate_to};
 #[cfg(feature = "dom")]
-pub use generic_node::dom_node::{render, render_to};
+pub use generic_node::{render, render_get_scope, render_to};
+
 pub use sycamore_macro::*;
 
 /// The sycamore prelude.
