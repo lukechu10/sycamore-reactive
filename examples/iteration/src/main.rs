@@ -7,7 +7,7 @@ struct Cat {
 }
 
 #[component]
-fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
+fn App<'a, G: Html>(ctx: ScopeRef<'a>, _: ()) -> View<G> {
     let items = ctx.create_signal(vec![
         Cat {
             id: "J---aiyznGQ",
@@ -22,16 +22,6 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
             name: "Henri The Existential Cat",
         },
     ]);
-
-    // let items = ctx.map_indexed(items, |ctx, &Cat { id, name }| {
-    //     view! {
-    //         li {
-    //             a(href=format!("https://www.youtube.com/watch?v={id}")) {
-    //                 (name)
-    //             }
-    //         }
-    //     }
-    // });
 
     view! {
         p { "The famous cats of YouTube" }

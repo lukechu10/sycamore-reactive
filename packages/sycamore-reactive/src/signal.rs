@@ -192,7 +192,7 @@ impl<T> Signal<T> {
     /// assert_eq!(*state(), 1);
     /// # });
     /// ```
-    pub fn split<'a>(&'a self) -> (impl Fn() -> Rc<T> + Copy + 'a, impl Fn(T) + Copy + 'a) {
+    pub fn split(&self) -> (impl Fn() -> Rc<T> + Copy + '_, impl Fn(T) + Copy + '_) {
         let getter = move || self.get();
         let setter = move |x| self.set(x);
         (getter, setter)

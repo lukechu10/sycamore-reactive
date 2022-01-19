@@ -1,7 +1,7 @@
 use sycamore::prelude::*;
 
 #[component]
-fn MyComponent<G: Html>(ctx: ScopeRef, props: RcSignal<i32>) -> View<G> {
+fn MyComponent<'a, G: Html>(ctx: ScopeRef<'a>, props: &'a Signal<i32>) -> View<G> {
     view! {
         div(class="my-component") {
             "My component"
@@ -14,19 +14,16 @@ fn MyComponent<G: Html>(ctx: ScopeRef, props: RcSignal<i32>) -> View<G> {
 }
 
 #[component]
-fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
-    let state = create_rc_signal(0);
+fn App<'a, G: Html>(ctx: ScopeRef<'a>, _: ()) -> View<G> {
+    let state = ctx.create_signal(0);
 
-    let increment = {
-        let state = state.clone();
-        move |_| state.set(*state.get() + 1)
-    };
+    let increment = |_| state.set(*state.get() + 1);
 
     view! {
         div {
             "Component demo"
 
-            MyComponent(state.clone())
+            MyComponent(state)
             MyComponent(state)
 
             button(on:click=increment) { "+" }

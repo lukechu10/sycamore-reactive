@@ -29,5 +29,5 @@ trybuild = "1.0.52"
 
 [features]
 default = []
-experimental-hydrate = []
+# experimental-hydrate = []
 ssr = []
