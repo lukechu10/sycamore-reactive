@@ -1,39 +1,21 @@
-//! The definition of the [`Component`] trait.
+//! Utilities for components.
 
 use crate::generic_node::GenericNode;
 use crate::reactive::*;
 use crate::view::View;
 
-/// Trait that is implemented by components. Should not be implemented manually. Use the
-/// [`component`](sycamore_macro::component) macro instead.
-pub trait Component<G: GenericNode, Props> {
-    /// Create a new component with an instance of the properties.
-    fn create_component(&self, ctx: ScopeRef, props: Props) -> View<G>;
-}
-
-impl<G: GenericNode, Props, T> Component<G, Props> for T
-where
-    T: for<'a> Fn(ScopeRef<'a>, Props) -> View<G>,
-{
-    fn create_component(&self, ctx: ScopeRef, props: Props) -> View<G> {
-        self(ctx, props)
-    }
-}
-
-/// Instantiates a component.
-#[inline(always)]
+/// Runs the given closure inside a new component scope. In other words, this does the following:
+/// * If hydration is enabled, create a new hydration context.
+/// * Create a new untracked scope (see [`untrack`]).
+/// * Call the closure `f` passed to this function.
 #[doc(hidden)]
-pub fn instantiate<'a, G: GenericNode, Props: 'a>(
-    f: &dyn Component<G, Props>,
-    ctx: ScopeRef<'a>,
-    props: Props,
-) -> View<G> {
+pub fn component_scope<G: GenericNode>(f: impl FnOnce() -> View<G>) -> View<G> {
     if G::USE_HYDRATION_CONTEXT {
         #[cfg(feature = "experimental-hydrate")]
-        return crate::utils::hydrate::hydrate_component(|| untrack(|| C::create_component(props)));
+        return crate::utils::hydrate::hydrate_component(|| untrack(f));
         #[cfg(not(feature = "experimental-hydrate"))]
-        return untrack(|| f.create_component(ctx, props));
+        return untrack(f);
     } else {
-        untrack(|| f.create_component(ctx, props))
+        untrack(f)
     }
 }
