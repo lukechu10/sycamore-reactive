@@ -7,7 +7,7 @@ struct Cat {
 }
 
 #[component]
-fn App<'a, G: Html>(ctx: ScopeRef<'a>, _: ()) -> View<G> {
+fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
     let items = ctx.create_signal(vec![
         Cat {
             id: "J---aiyznGQ",
