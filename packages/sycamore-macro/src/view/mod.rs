@@ -4,6 +4,8 @@ mod attributes;
 mod children;
 mod component;
 mod element;
+mod ir;
+mod parse;
 mod splice;
 
 use attributes::*;
