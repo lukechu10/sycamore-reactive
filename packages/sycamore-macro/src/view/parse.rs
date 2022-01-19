@@ -75,6 +75,13 @@ impl Parse for Element {
             Vec::new()
         };
 
+        let has_dangerously_set_inner_html_attr = attrs
+            .iter()
+            .any(|attr| attr.ty == AttributeType::DangerouslySetInnerHtml);
+        if has_dangerously_set_inner_html_attr && !children.is_empty() {
+            return Err(input.error("children and dangerously_set_inner_html cannot be both set"));
+        }
+
         Ok(Self {
             tag,
             attrs,

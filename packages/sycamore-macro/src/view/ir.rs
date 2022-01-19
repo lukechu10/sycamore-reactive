@@ -6,12 +6,7 @@ use once_cell::sync::Lazy;
 use syn::punctuated::Punctuated;
 use syn::{Expr, Ident, LitStr, Token};
 
-pub enum NodeType {
-    Element,
-    Component,
-    Text,
-    Dyn,
-}
+pub struct ViewRoot(pub Vec<ViewNode>);
 
 pub enum ViewNode {
     Element(Element),
@@ -20,6 +15,33 @@ pub enum ViewNode {
     Dyn(Dyn),
 }
 
+impl ViewNode {
+    /// Node is dynamic if the node is a component or a splice that is not a simple path.
+    /// # Example
+    /// ```ignore
+    /// view! { MyComponent() } // is_dynamic = true
+    /// view! { (state.get()) } // is_dynamic = true
+    /// view! { (state) } // is_dynamic = false
+    /// ```
+    pub fn is_dynamic(&self) -> bool {
+        match self {
+            ViewNode::Element(_) => false,
+            ViewNode::Component(_) => true,
+            ViewNode::Text(_) => false,
+            ViewNode::Dyn(Dyn {
+                value: Expr::Lit(_) | Expr::Path(_),
+            }) => false,
+            ViewNode::Dyn(_) => true,
+        }
+    }
+}
+
+pub enum NodeType {
+    Element,
+    Component,
+    Text,
+    Dyn,
+}
 pub struct Element {
     pub tag: ElementTag,
     pub attrs: Vec<Attribute>,

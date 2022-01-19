@@ -2,6 +2,7 @@
 
 mod attributes;
 mod children;
+mod codegen;
 mod component;
 mod element;
 mod ir;
