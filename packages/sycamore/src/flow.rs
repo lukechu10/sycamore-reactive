@@ -3,6 +3,7 @@ use std::hash::Hash;
 use crate::prelude::*;
 
 /// Props for [`Keyed`].
+#[derive(Prop)]
 pub struct KeyedProps<'a, T, F, G: GenericNode, K, Key>
 where
     F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,
@@ -42,6 +43,7 @@ where
 }
 
 /// Props for [`Indexed`].
+#[derive(Prop)]
 pub struct IndexedProps<'a, G: GenericNode, T, F>
 where
     F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,

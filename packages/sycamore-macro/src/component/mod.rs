@@ -1,3 +1,5 @@
+//! The `#[component]` attribute macro implementation.
+
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};

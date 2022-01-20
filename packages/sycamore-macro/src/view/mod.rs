@@ -1,3 +1,5 @@
+//! The `view!` macro implementation.
+
 #![allow(clippy::eval_order_dependence)] // Needed when using `syn::parenthesized!`.
 
 pub mod codegen;

@@ -1,7 +1,10 @@
+//! Proc-macros used in [Sycamore](https://sycamore-rs.netlify.app).
+
 use proc_macro::TokenStream;
-use syn::parse_macro_input;
+use syn::{parse_macro_input, DeriveInput};
 
 mod component;
+mod prop;
 mod view;
 
 /// A macro for ergonomically creating complex UI structures.
@@ -45,6 +48,16 @@ pub fn component(_attr: TokenStream, component: TokenStream) -> TokenStream {
     let comp = parse_macro_input!(component as component::ComponentFunction);
 
     component::component_impl(comp)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// A derive macro for creating a builder-like API used in the [`view!`] macro.
+#[proc_macro_derive(Prop, attributes(prop))]
+pub fn derive_prop(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    prop::impl_derive_prop(&input)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
