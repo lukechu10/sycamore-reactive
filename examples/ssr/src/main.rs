@@ -6,16 +6,14 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
 
     let handle_change = move |_| unreachable!();
 
-    view! {
+    view! { ctx,
         div {
             h1 {
                 "Hello "
                 ({if !name.get().is_empty() {
-                    view! {
-                        span { (name.get()) }
-                    }
+                    view! { ctx, span { (name.get()) } }
                 } else {
-                    view! { span { "World" } }
+                    view! { ctx, span { "World" } }
                 }})
                 "!"
             }
@@ -26,6 +24,6 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
 }
 
 fn main() {
-    let s = sycamore::render_to_string(|ctx| view! { App() });
+    let s = sycamore::render_to_string(|ctx| view! { ctx, App() });
     println!("{}", s);
 }

@@ -40,7 +40,9 @@ impl<'a> EffectState<'a> {
     pub fn clear_dependencies(&mut self) {
         for dependency in &self.dependencies {
             // SAFETY: TODO
-            dependency.0.unsubscribe(unsafe { std::mem::transmute(Rc::as_ptr(&self.cb)) });
+            dependency
+                .0
+                .unsubscribe(unsafe { std::mem::transmute(Rc::as_ptr(&self.cb)) });
         }
         self.dependencies.clear();
     }
@@ -106,7 +108,9 @@ impl<'a> Scope<'a> {
                     // updating the signal will trigger the effect.
                     for emitter in &boxed.dependencies {
                         // SAFETY: TODO
-                        emitter.0.subscribe(unsafe { std::mem::transmute(Rc::downgrade(&boxed.cb)) });
+                        emitter
+                            .0
+                            .subscribe(unsafe { std::mem::transmute(Rc::downgrade(&boxed.cb)) });
                     }
 
                     // Get the effect state back into the Rc

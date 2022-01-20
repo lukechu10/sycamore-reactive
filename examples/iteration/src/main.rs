@@ -23,12 +23,12 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
         },
     ]);
 
-    view! {
+    view! { ctx,
         p { "The famous cats of YouTube" }
         ul {
             Indexed(IndexedProps {
                 iterable: items,
-                template: |ctx, &Cat { id, name }| view! {
+                template: |ctx, &Cat { id, name }| view! { ctx,
                     li {
                         a(href=format!("https://www.youtube.com/watch?v={id}")) {
                             (name)
@@ -41,5 +41,5 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
 }
 
 fn main() {
-    sycamore::render(|ctx| view! { App() });
+    sycamore::render(|ctx| view! { ctx, App() });
 }

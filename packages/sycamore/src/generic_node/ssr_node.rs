@@ -308,7 +308,12 @@ impl GenericNode for SsrNode {
             .remove_child(self);
     }
 
-    fn event<'a>(&self, _ctx: ScopeRef<'a>, _name: &str, _handler: Box<dyn Fn(Self::EventType) + 'a>) {
+    fn event<'a>(
+        &self,
+        _ctx: ScopeRef<'a>,
+        _name: &str,
+        _handler: Box<dyn Fn(Self::EventType) + 'a>,
+    ) {
         // Noop. Events are attached on client side.
     }
 
@@ -455,7 +460,7 @@ mod tests {
     #[test]
     fn render_hello_world() {
         assert_eq!(
-            render_to_string(|ctx| view! {
+            render_to_string(|ctx| view! { ctx,
                 "Hello World!"
             }),
             "Hello World!"
@@ -465,7 +470,7 @@ mod tests {
     #[test]
     fn render_escaped_text() {
         assert_eq!(
-            render_to_string(|ctx| view! {
+            render_to_string(|ctx| view! { ctx,
                 "<script>Dangerous!</script>"
             }),
             "&lt;script>Dangerous!&lt;/script>"
@@ -475,7 +480,7 @@ mod tests {
     #[test]
     fn render_unescaped_html() {
         assert_eq!(
-            render_to_string(|ctx| view! {
+            render_to_string(|ctx| view! { ctx,
                 div(dangerously_set_inner_html="<a>Html!</a>")
             }),
             "<div data-hk=\"0.0\"><a>Html!</a></div>"

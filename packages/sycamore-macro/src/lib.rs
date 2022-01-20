@@ -10,7 +10,7 @@ mod view;
 /// [the `view!` macro](https://sycamore-rs.netlify.app/docs/basics/view) in the Sycamore Book.
 #[proc_macro]
 pub fn view(view: TokenStream) -> TokenStream {
-    let view_root = parse_macro_input!(view as view::ir::ViewRoot);
+    let view_root = parse_macro_input!(view as view::WithCtxArg<view::ir::ViewRoot>);
 
     view::view_impl(view_root).into()
 }
@@ -18,9 +18,9 @@ pub fn view(view: TokenStream) -> TokenStream {
 /// ```
 /// use sycamore::prelude::*;
 ///
-/// #[component(MyComponent<G>)]
-/// pub fn my_component() -> View<G> {
-///     let cool_button: G = node! { button { "The coolest 😎" } };
+/// #[component]
+/// pub fn MyComponent(ctx: ScopeRef) -> View<G> {
+///     let cool_button: G = node! { ctx, button { "The coolest 😎" } };
 ///
 ///     cool_button.set_property("myProperty", &"Epic!".into());
 ///
@@ -29,7 +29,7 @@ pub fn view(view: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 pub fn node(input: TokenStream) -> TokenStream {
-    let node = parse_macro_input!(input as view::ir::ViewNode);
+    let node = parse_macro_input!(input as view::WithCtxArg<view::ir::ViewNode>);
 
     view::node_impl(node).into()
 }

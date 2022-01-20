@@ -6,7 +6,7 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
     let increment = |_| state.set(*state.get() + 1);
     let decrement = |_| state.set(*state.get() - 1);
     let reset = |_| state.set(0);
-    view! {
+    view! { ctx,
         div {
             p { "Value: " (state.get()) }
             button(on:click=increment) { "+" }
@@ -18,7 +18,7 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
 
 fn main() {
     sycamore::render(|ctx| {
-        view! {
+        view! { ctx,
             App()
         }
     });
