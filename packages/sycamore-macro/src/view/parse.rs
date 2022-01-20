@@ -4,8 +4,9 @@ use std::fmt;
 
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
-use syn::token::Paren;
-use syn::{braced, parenthesized, token, Expr, Ident, LitStr, Result, Token};
+use syn::punctuated::Punctuated;
+use syn::token::{Brace, Comma, Paren};
+use syn::{braced, parenthesized, token, Expr, FieldValue, Ident, LitStr, Result, Token};
 
 use super::ir::*;
 
@@ -198,9 +199,27 @@ impl Parse for Component {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
         let content;
-        parenthesized!(content in input);
-        let args = content.parse_terminated(Expr::parse)?;
-        Ok(Self { ident, args })
+        if input.peek(Paren) {
+            parenthesized!(content in input);
+            let args = content.parse_terminated(Expr::parse)?;
+            Ok(Self::FnLike(FnLikeComponent { ident, args }))
+        } else if input.peek(Brace) {
+            braced!(content in input);
+            let props: Punctuated<FieldValue, Comma> =
+                content.parse_terminated(FieldValue::parse)?;
+            Ok(Self::ElementLike(ElementLikeComponent {
+                ident,
+                props: props
+                    .into_iter()
+                    .map(|x| match x.member {
+                        syn::Member::Named(named) => (named, x.expr),
+                        syn::Member::Unnamed(_) => todo!("implement error handling"),
+                    })
+                    .collect(),
+            }))
+        } else {
+            Err(input.error("expected either `(` or `{`"))
+        }
     }
 }
 

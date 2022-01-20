@@ -1,4 +1,4 @@
-//! Arena allocator for [`Scope`].
+//! Arena allocator for [`Scope`](crate::Scope).
 
 use std::cell::UnsafeCell;
 

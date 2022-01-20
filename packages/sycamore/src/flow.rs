@@ -12,13 +12,13 @@ where
     T: Clone + PartialEq,
 {
     pub iterable: &'a ReadSignal<Vec<T>>,
-    pub template: F,
+    pub view: F,
     pub key: K,
 }
 
 /// Keyed iteration. Use this instead of directly rendering an array of [`View`]s.
-/// Using this will minimize re-renders instead of re-rendering every single node on every state
-/// change.
+/// Using this will minimize re-renders instead of re-rendering evertemplate: view node on every
+/// state change.
 ///
 /// For non keyed iteration, see [`Indexed`].
 #[component]
@@ -34,11 +34,11 @@ where
 {
     let KeyedProps {
         iterable,
-        template,
+        view,
         key,
     } = props;
 
-    let mapped = ctx.map_keyed(iterable, template, key);
+    let mapped = ctx.map_keyed(iterable, view, key);
     View::new_dyn(ctx, || View::new_fragment(mapped.get().as_ref().clone()))
 }
 
@@ -49,7 +49,7 @@ where
     F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,
 {
     pub iterable: &'a ReadSignal<Vec<T>>,
-    pub template: F,
+    pub view: F,
 }
 
 /// Non keyed iteration (or keyed by index). Use this instead of directly rendering an array of
@@ -66,8 +66,8 @@ where
     T: Clone + PartialEq,
     F: Fn(ScopeRef<'_>, &T) -> View<G> + 'a,
 {
-    let IndexedProps { iterable, template } = props;
+    let IndexedProps { iterable, view } = props;
 
-    let mapped = ctx.map_indexed(iterable, template);
+    let mapped = ctx.map_indexed(iterable, view);
     View::new_dyn(ctx, || View::new_fragment(mapped.get().as_ref().clone()))
 }

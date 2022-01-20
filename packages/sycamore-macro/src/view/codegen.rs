@@ -447,12 +447,27 @@ impl Codegen {
 
     pub fn component(&self, comp: &Component) -> TokenStream {
         let ctx = &self.ctx;
-        let Component { ident, args } = comp;
+        match comp {
+            Component::FnLike(comp) => {
+                let FnLikeComponent { ident, args } = comp;
+                if args.empty_or_trailing() {
+                    quote! { ::sycamore::component::component_scope(move || #ident(#ctx, ())) }
+                } else {
+                    quote! { ::sycamore::component::component_scope(move || #ident(#ctx, #args)) }
+                }
+            }
+            Component::ElementLike(comp) => {
+                let ElementLikeComponent { ident, props } = comp;
+                let mut props_quoted = quote! {
+                    ::sycamore::component::element_like_component_builder(&#ident)
+                };
+                for (ident, expr) in props {
+                    props_quoted.extend(quote! { .#ident(#expr) });
+                }
+                props_quoted.extend(quote! { .build() });
 
-        if args.empty_or_trailing() {
-            quote! { ::sycamore::component::component_scope(move || #ident(#ctx, ())) }
-        } else {
-            quote! { ::sycamore::component::component_scope(move || #ident(#ctx, #args)) }
+                quote! { ::sycamore::component::component_scope(move || #ident(#ctx, #props_quoted)) }
+            },
         }
     }
 }

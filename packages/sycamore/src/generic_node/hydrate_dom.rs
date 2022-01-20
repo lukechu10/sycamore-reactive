@@ -234,7 +234,7 @@ impl Html for HydrateNode {
 /// Render a [`View`] under a `parent` node by reusing existing nodes (client side
 /// hydration). Alias for [`hydrate_to`] with `parent` being the `<body>` tag.
 ///
-/// For rendering without hydration, use [`render`] instead.
+/// For rendering without hydration, use [`render`](super::render) instead.
 ///
 /// _This API requires the following crate features to be activated: `experimental-hydrate`, `dom`_
 pub fn hydrate(template: impl FnOnce(ScopeRef<'_>) -> View<HydrateNode>) {
@@ -247,7 +247,7 @@ pub fn hydrate(template: impl FnOnce(ScopeRef<'_>) -> View<HydrateNode>) {
 /// Render a [`View`] under a `parent` node by reusing existing nodes (client side
 /// hydration). For rendering under the `<body>` tag, use [`hydrate_to`] instead.
 ///
-/// For rendering without hydration, use [`render`] instead.
+/// For rendering without hydration, use [`render`](super::render) instead.
 ///
 /// _This API requires the following crate features to be activated: `experimental-hydrate`, `dom`_
 pub fn hydrate_to(view: impl FnOnce(ScopeRef<'_>) -> View<HydrateNode>, parent: &Node) {

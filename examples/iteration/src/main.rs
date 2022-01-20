@@ -26,13 +26,16 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
     view! { ctx,
         p { "The famous cats of YouTube" }
         ul {
-            Indexed(IndexedProps::builder().iterable(items).template(|ctx, &Cat { id, name }| view! { ctx,
-                li {
-                    a(href=format!("https://www.youtube.com/watch?v={id}")) {
-                        (name)
+            Indexed {
+                iterable: items,
+                view: |ctx, &Cat { id, name }| view! { ctx,
+                    li {
+                        a(href=format!("https://www.youtube.com/watch?v={id}")) {
+                            (name)
+                        }
                     }
                 }
-            }).build())
+            }
         }
     }
 }

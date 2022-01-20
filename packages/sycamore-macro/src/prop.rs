@@ -1,6 +1,6 @@
 //! The `Prop` derive macro implementation.
 //!
-//! _Credits: This code is mostly taken from https://github.com/idanarye/rust-typed-builder_
+//! _Credits: This code is mostly taken from <https://github.com/idanarye/rust-typed-builder>_
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -240,6 +240,16 @@ mod struct_info {
                     fn clone(&self) -> Self {
                         Self {
                             fields: self.fields.clone(),
+                            phantom: ::core::default::Default::default(),
+                        }
+                    }
+                }
+
+                impl #impl_generics ::sycamore::component::Prop for #name #ty_generics #where_clause {
+                    type Builder = #builder_name #generics_with_empty;
+                    fn builder() -> Self::Builder {
+                        #builder_name {
+                            fields: #empties_tuple,
                             phantom: ::core::default::Default::default(),
                         }
                     }

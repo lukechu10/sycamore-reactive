@@ -124,9 +124,19 @@ pub fn is_bool_attr(name: &str) -> bool {
     BOOLEAN_ATTRIBUTES_SET.contains(name)
 }
 
-pub struct Component {
+pub enum Component {
+    FnLike(FnLikeComponent),
+    ElementLike(ElementLikeComponent)
+}
+
+pub struct FnLikeComponent {
     pub ident: Ident,
     pub args: Punctuated<Expr, Token![,]>,
+}
+
+pub struct ElementLikeComponent {
+    pub ident: Ident,
+    pub props: Vec<(Ident, Expr)>,
 }
 
 pub struct Text {

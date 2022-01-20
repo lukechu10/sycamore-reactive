@@ -1,4 +1,4 @@
-//! Utilities for components.
+//! Utilities for components and component properties.
 
 use crate::generic_node::GenericNode;
 use crate::reactive::*;
@@ -18,4 +18,18 @@ pub fn component_scope<G: GenericNode>(f: impl FnOnce() -> View<G>) -> View<G> {
     } else {
         untrack(f)
     }
+}
+
+/// A trait that is implemented automatically by the [`Prop`](crate::Prop) derive macro.
+pub trait Prop {
+    type Builder;
+    fn builder() -> Self::Builder;
+}
+
+/// Get the builder for the component function.
+#[doc(hidden)]
+pub fn element_like_component_builder<'a, T: Prop + 'a, G: GenericNode>(
+    _f: &impl Fn(ScopeRef<'a>, T) -> View<G>,
+) -> T::Builder {
+    T::builder()
 }
