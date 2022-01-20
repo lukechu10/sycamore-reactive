@@ -7,6 +7,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 use crate::generic_node::GenericNode;
+use crate::reactive::Scope;
 use std::any::Any;
 
 /// A reference to a [`GenericNode`].
@@ -76,11 +77,23 @@ impl<G: GenericNode> fmt::Debug for NodeRef<G> {
     }
 }
 
+/* Hook implementation */
+
+/// Extension trait for [`Scope`] adding the `create_node_ref` method.
+pub trait ScopeCreateNodeRef<'a> {
+    fn create_node_ref<G: GenericNode>(&'a self) -> &'a NodeRef<G>;
+}
+
+impl<'a> ScopeCreateNodeRef<'a> for Scope<'a> {
+    /// Create a new [`NodeRef`] on the current [`Scope`].
+    fn create_node_ref<G: GenericNode>(&'a self) -> &'a NodeRef<G> {
+        self.create_ref(NodeRef::new())
+    }
+}
+
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
-    use crate::generic_node::{DomNode, SsrNode};
-
-    use super::*;
+    use crate::prelude::*;
 
     #[test]
     fn empty_noderef() {
@@ -105,5 +118,14 @@ mod tests {
         noderef.set(node.clone());
         assert_eq!(noderef.try_get::<SsrNode>(), Some(node));
         assert!(noderef.try_get::<DomNode>().is_none());
+    }
+
+    #[test]
+    fn noderef_with_ssrnode() {
+        create_scope_immediate(|ctx| {
+            let noderef = ctx.create_node_ref();
+            let _: View<SsrNode> = view! { ctx, div(ref=noderef) };
+            assert!(noderef.try_get::<SsrNode>().is_some());
+        });
     }
 }
