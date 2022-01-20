@@ -29,7 +29,7 @@ pub fn view(view: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 pub fn node(input: TokenStream) -> TokenStream {
-    let node = parse_macro_input!(input as view::Element);
+    let node = parse_macro_input!(input as view::ir::ViewNode);
 
     view::node_impl(node).into()
 }
