@@ -4,14 +4,15 @@
 //! of some internal state during the entire codegen.
 
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
-use syn::Ident;
+use quote::{quote, ToTokens};
+use syn::spanned::Spanned;
+use syn::{Expr, ExprLit, Ident, Lit};
 
 use crate::view::ir::*;
 
 /// A struct for keeping track of the state when emitting Rust code.
 pub struct Codegen {
-    ctx: Ident,
+    pub ctx: Ident,
 }
 
 impl Codegen {
@@ -41,15 +42,30 @@ impl Codegen {
     }
 
     pub fn view_node(&self, view_node: &ViewNode) -> TokenStream {
+        let ctx = &self.ctx;
         match view_node {
-            ViewNode::Element(elem) => self.element(elem),
+            ViewNode::Element(elem) => {
+                let elem = self.element(elem);
+                quote! {
+                    ::sycamore::view::View::new_node(#elem)
+                }
+            }
             ViewNode::Component(comp) => self.component(comp),
-            ViewNode::Text(txt) => self.text(txt),
-            ViewNode::Dyn(d) => self.dyn_node(d),
+            ViewNode::Text(Text { value }) => quote! {
+                ::sycamore::view::View::new_node(::sycamore::generic_node::GenericNode::text_node(#value));
+            },
+            ViewNode::Dyn(Dyn { value }) => {
+                quote! {
+                    ::sycamore::view::View::new_dyn(#ctx, move ||
+                        ::sycamore::view::IntoView::create(&(#value))
+                    )
+                }
+            }
         }
     }
 
     pub fn element(&self, elem: &Element) -> TokenStream {
+        let ctx = &self.ctx;
         let Element {
             tag,
             attrs,
@@ -70,29 +86,74 @@ impl Codegen {
             while let Some(child) = children.next() {
                 let is_dyn = child.is_dynamic();
                 if is_dyn {
-                    // Child is dynamic.
+                    let mut marker_is_some = true;
+                    let marker = if let Some(ViewNode::Element(elem)) =
+                        children.next_if(|x| matches!(x, ViewNode::Element(_)))
+                    {
+                        let elem = self.element(elem);
+                        quote! {
+                            let __marker = #elem;
+                            ::sycamore::generic_node::GenericNode::append_child(&__el, &__marker);
+                            let __marker = ::std::option::Option::Some(&__marker);
+                        }
+                    } else if let Some(ViewNode::Text(Text { value })) =
+                        children.next_if(|x| matches!(x, ViewNode::Text(_)))
+                    {
+                        quote! {
+                            let __marker = ::sycamore::generic_node::GenericNode::text_node(#value);
+                            ::sycamore::generic_node::GenericNode::append_child(&__el, &__marker);
+                            let __marker = ::std::option::Option::Some(&__marker);
+                        }
+                    } else if children.peek().is_none() {
+                        marker_is_some = false;
+                        quote! {
+                            let __marker = ::std::option::Option::None;
+                        }
+                    } else {
+                        quote! {
+                            let __marker = ::sycamore::generic_node::GenericNode::marker();
+                            ::sycamore::generic_node::GenericNode::append_child(&__el, &__marker);
+                            let __marker = ::std::option::Option::Some(&__marker);
+                        }
+                    };
+                    let marker_or_none = marker_is_some.then(|| marker.clone()).unwrap_or_default();
 
                     // If __el is a HydrateNode, use get_next_marker as initial node value.
                     let initial = if cfg!(feature = "experimental-hydrate") {
                         quote! {
-                            if let ::std::option::Some(__el) = <dyn ::std::any::Any>::downcast_ref::<::sycamore::HydrateNode>(&__el) {
+                            if let ::std::option::Option::Some(__el)
+                                = <dyn ::std::any::Any>::downcast_ref::<::sycamore::HydrateNode>(&__el) {
                                 let __initial = ::sycamore::utils::hydrate::web::get_next_marker(&__el.inner_element());
                                 // Do not drop the HydrateNode because it will be cast into a GenericNode.
                                 let __initial = ::std::mem::ManuallyDrop::new(__initial);
                                 // SAFETY: This is safe because we already checked that the type is HydrateNode.
                                 // __initial is wrapped inside ManuallyDrop to prevent double drop.
                                 unsafe { ::std::ptr::read(&__initial as *const _ as *const _) }
-                            } else { None }
+                            } else { ::std::option::Option::None }
                         }
                     } else {
-                        quote! { None }
+                        quote! { ::std::option::Option::None }
                     };
 
-                    match child {
-                        ViewNode::Component(comp) => todo!(),
-                        ViewNode::Dyn(_) => todo!(),
+                    quoted.extend(match child {
+                        ViewNode::Component(comp) => {
+                            let comp = self.component(comp);
+                            quote! {
+                                #marker
+                                ::sycamore::utils::render::insert(#ctx, &__el, #comp, #initial, __marker, #multi);
+                            }
+                        }
+                        ViewNode::Dyn(Dyn { value}) => quote! {
+                            #marker
+                            ::sycamore::utils::render::insert(#ctx, &__el,
+                                ::sycamore::view::View::new_dyn(#ctx, move ||
+                                    ::sycamore::view::IntoView::create(&(#value))
+                                ),
+                                #initial, __marker, #multi
+                            );
+                        },
                         _ => unreachable!("only component and dyn node can be dynamic"),
-                    };
+                    });
 
                     // Do not perform non dynamic codegen.
                     continue;
@@ -126,37 +187,242 @@ impl Codegen {
                             },
                         });
                     }
-                    ViewNode::Dyn(_) => {
-                        assert!(!is_dyn);
-                        todo!()
-                    }
+                    ViewNode::Dyn(Dyn { value }) => quoted.extend(quote! {
+                        ::sycamore::utils::render::insert(#ctx, &__el,
+                            ::sycamore::view::IntoView::create(&(#value)),
+                            None, None, #multi
+                        );
+                    }),
                 }
             }
             quoted
         };
 
-        quote! {
+        quote! {{
             let __el = ::sycamore::generic_node::GenericNode::element(#tag);
             #quote_attrs
             #quote_children
             __el
-        }
+        }}
     }
 
     pub fn attribute(&self, attr: &Attribute) -> TokenStream {
-        todo!();
+        let ctx = &self.ctx;
+        let mut tokens = TokenStream::new();
+        let expr = &attr.value;
+
+        let is_dynamic = !matches!(
+            expr,
+            Expr::Lit(ExprLit {
+                lit: Lit::Str(_),
+                ..
+            })
+        );
+
+        match &attr.ty {
+            AttributeType::Str { name } => {
+                let name = name.to_string();
+                // Use `set_class_name` instead of `set_attribute` for better performance.
+                let is_class = name == "class";
+                let quoted_text = if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(text),
+                    ..
+                }) = expr
+                {
+                    // Since this is static text, intern it as it will likely be constructed many
+                    // times.
+                    quote! {
+                        if ::std::cfg!(target_arch = "wasm32") {
+                            ::sycamore::rt::intern(#text)
+                        } else {
+                            #text
+                        }
+                    }
+                } else {
+                    quote! {
+                        &::std::string::ToString::to_string(&#expr)
+                    }
+                };
+                let quoted_set_attribute = if is_class {
+                    quote! {
+                        ::sycamore::generic_node::GenericNode::set_class_name(&__el, #quoted_text);
+                    }
+                } else {
+                    quote! {
+                        ::sycamore::generic_node::GenericNode::set_attribute(
+                            &__el,
+                            #name,
+                            #quoted_text,
+                        );
+                    }
+                };
+
+                if is_dynamic {
+                    tokens.extend(quote! {
+                        ::sycamore::reactive::Scope::create_effect(#ctx,, {
+                            let __el = ::std::clone::Clone::clone(&__el);
+                            move || { #quoted_set_attribute }
+                        });
+                    });
+                } else {
+                    tokens.extend(quote! { #quoted_set_attribute });
+                };
+            }
+            AttributeType::Bool { name } => {
+                let name = name.to_string();
+                let quoted_set_attribute = quote! {
+                    if #expr {
+                        ::sycamore::generic_node::GenericNode::set_attribute(&__el, #name, "");
+                    } else {
+                        ::sycamore::generic_node::GenericNode::remove_attribute(&__el, #name);
+                    }
+                };
+
+                if is_dynamic {
+                    tokens.extend(quote! {
+                        ::sycamore::reactive::Scope::create_effect(#ctx,, {
+                            let __el = ::std::clone::Clone::clone(&__el);
+                            move || {
+                                #quoted_set_attribute
+                            }
+                        });
+                    });
+                } else {
+                    tokens.extend(quote! {
+                        #quoted_set_attribute
+                    });
+                };
+            }
+            AttributeType::DangerouslySetInnerHtml => {
+                if is_dynamic {
+                    tokens.extend(quote! {
+                        ::sycamore::reactive::Scope::create_effect(#ctx,, {
+                            let __el = ::std::clone::Clone::clone(&__el);
+                            move || {
+                                ::sycamore::generic_node::GenericNode::dangerously_set_inner_html(
+                                    &__el,
+                                    #expr,
+                                );
+                            }
+                        });
+                    });
+                } else {
+                    tokens.extend(quote! {
+                        ::sycamore::generic_node::GenericNode::dangerously_set_inner_html(
+                            &__el,
+                            #expr,
+                        );
+                    });
+                };
+            }
+            AttributeType::Event { event } => {
+                tokens.extend(quote! {
+                    ::sycamore::generic_node::GenericNode::event(
+                        &__el,
+                        #ctx,
+                        #event,
+                        ::std::boxed::Box::new(#expr),
+                    );
+                });
+            }
+            AttributeType::Bind { prop } => {
+                #[derive(Clone, Copy)]
+                enum JsPropertyType {
+                    Bool,
+                    String,
+                }
+
+                let (event_name, property_ty) = match prop.as_str() {
+                    "value" => ("input", JsPropertyType::String),
+                    "checked" => ("change", JsPropertyType::Bool),
+                    _ => {
+                        tokens.extend(
+                            syn::Error::new(
+                                prop.span(),
+                                &format!("property `{}` is not supported with bind:", prop),
+                            )
+                            .to_compile_error(),
+                        );
+                        return tokens;
+                    }
+                };
+
+                let value_ty = match property_ty {
+                    JsPropertyType::Bool => quote! { ::std::primitive::bool },
+                    JsPropertyType::String => quote! { ::std::string::String },
+                };
+
+                let convert_into_jsvalue_fn = match property_ty {
+                    JsPropertyType::Bool => {
+                        quote! { ::sycamore::rt::JsValue::from_bool(*signal.get()) }
+                    }
+                    JsPropertyType::String => {
+                        quote! {
+                            ::sycamore::rt::JsValue::from_str(
+                                &::std::string::ToString::to_string(&signal.get())
+                            )
+                        }
+                    }
+                };
+
+                let event_target_prop = quote! {
+                    ::sycamore::rt::Reflect::get(
+                        &event.target().unwrap(),
+                        &::std::convert::Into::<::sycamore::rt::JsValue>::into(#prop)
+                    ).unwrap()
+                };
+
+                let convert_from_jsvalue_fn = match property_ty {
+                    JsPropertyType::Bool => quote! {
+                        ::sycamore::rt::JsValue::as_bool(&#event_target_prop).unwrap()
+                    },
+                    JsPropertyType::String => quote! {
+                        ::sycamore::rt::JsValue::as_string(&#event_target_prop).unwrap()
+                    },
+                };
+
+                tokens.extend(quote! {{
+                    let signal: ::sycamore::reactive::Signal<#value_ty> = #expr;
+
+                    #[cfg(target_arch = "wasm32")]
+                    ::sycamore::reactive::create_effect({
+                        let signal = ::std::clone::Clone::clone(&signal);
+                        let __el = ::std::clone::Clone::clone(&__el);
+                        move || {
+                            ::sycamore::generic_node::GenericNode::set_property(
+                                &__el,
+                                #prop,
+                                &#convert_into_jsvalue_fn,
+                            );
+                        }
+                    });
+
+                    ::sycamore::generic_node::GenericNode::event(
+                        &__el,
+                        #event_name,
+                        ::std::boxed::Box::new(move |event: ::sycamore::rt::Event| {
+                            signal.set(#convert_from_jsvalue_fn);
+                        }),
+                    )
+                }});
+            }
+            AttributeType::Ref => {
+                tokens.extend(quote! {{
+                    ::sycamore::noderef::NodeRef::set(&#expr, ::std::clone::Clone::clone(&__el));
+                }});
+            }
+        }
+        tokens
     }
 
     pub fn component(&self, comp: &Component) -> TokenStream {
-        todo!();
-    }
+        let ctx = &self.ctx;
+        let Component { ident, args } = comp;
 
-    pub fn text(&self, txt: &Text) -> TokenStream {
-        let s = &txt.value;
-        quote! { #s }
-    }
-
-    pub fn dyn_node(&self, d: &Dyn) -> TokenStream {
-        todo!();
+        if args.empty_or_trailing() {
+            quote! { ::sycamore::component::component_scope(move || #ident(#ctx, ())) }
+        } else {
+            quote! { ::sycamore::component::component_scope(move || #ident(#ctx, #args)) }
+        }
     }
 }

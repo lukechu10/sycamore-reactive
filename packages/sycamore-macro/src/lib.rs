@@ -9,10 +9,10 @@ mod view;
 /// To learn more about the template syntax, see the chapter on
 /// [the `view!` macro](https://sycamore-rs.netlify.app/docs/basics/view) in the Sycamore Book.
 #[proc_macro]
-pub fn view(component: TokenStream) -> TokenStream {
-    let component = parse_macro_input!(component as view::HtmlRoot);
+pub fn view(view: TokenStream) -> TokenStream {
+    let view_root = parse_macro_input!(view as view::ir::ViewRoot);
 
-    view::view_impl(component).into()
+    view::view_impl(view_root).into()
 }
 
 /// ```

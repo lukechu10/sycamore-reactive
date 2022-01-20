@@ -2,11 +2,11 @@
 
 mod attributes;
 mod children;
-mod codegen;
+pub mod codegen;
 mod component;
 mod element;
-mod ir;
-mod parse;
+pub mod ir;
+pub mod parse;
 mod splice;
 
 use attributes::*;
@@ -16,11 +16,14 @@ pub use element::Element;
 use splice::*;
 
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::token::Paren;
 use syn::{Ident, LitStr, Result, Token};
+
+use self::codegen::Codegen;
+use self::ir::ViewRoot;
 
 pub enum HtmlType {
     Component,
@@ -140,8 +143,11 @@ impl ToTokens for HtmlRoot {
     }
 }
 
-pub fn view_impl(component: HtmlRoot) -> TokenStream {
-    component.to_token_stream()
+pub fn view_impl(view_root: ViewRoot) -> TokenStream {
+    let codegen_state = Codegen {
+        ctx: format_ident!("ctx"),
+    };
+    codegen_state.view_root(&view_root)
 }
 
 pub fn node_impl(html: Element) -> TokenStream {

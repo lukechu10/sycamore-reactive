@@ -9,6 +9,18 @@ use syn::{braced, parenthesized, token, Expr, Ident, LitStr, Result, Token};
 
 use super::ir::*;
 
+impl Parse for ViewRoot {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut children = Vec::new();
+
+        while !input.is_empty() {
+            children.push(input.parse()?);
+        }
+
+        Ok(Self(children))
+    }
+}
+
 impl ViewNode {
     fn peek_type(input: ParseStream) -> Option<NodeType> {
         let input = input.fork(); // do not affect original ParseStream
@@ -184,12 +196,11 @@ impl Parse for AttributeType {
 
 impl Parse for Component {
     fn parse(input: ParseStream) -> Result<Self> {
+        let ident = input.parse()?;
         let content;
         parenthesized!(content in input);
-        Ok(Self {
-            ident: input.parse()?,
-            args: content.parse_terminated(Expr::parse)?,
-        })
+        let args = content.parse_terminated(Expr::parse)?;
+        Ok(Self { ident, args })
     }
 }
 
