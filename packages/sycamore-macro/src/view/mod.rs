@@ -38,10 +38,10 @@ pub fn view_impl(view_root: WithCtxArg<ViewRoot>) -> TokenStream {
     }}
 }
 
-pub fn node_impl(node: WithCtxArg<ViewNode>) -> TokenStream {
-    let ctx = node.ctx;
+pub fn node_impl(elem: WithCtxArg<Element>) -> TokenStream {
+    let ctx = elem.ctx;
     let codegen_state = Codegen { ctx: ctx.clone() };
-    let quoted = codegen_state.view_node(&node.rest);
+    let quoted = codegen_state.element(&elem.rest);
     quote! {{
         let __ctx = &#ctx; // Make sure that ctx is used.
         #quoted

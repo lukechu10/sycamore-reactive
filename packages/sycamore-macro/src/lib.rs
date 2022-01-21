@@ -22,7 +22,7 @@ pub fn view(view: TokenStream) -> TokenStream {
 /// use sycamore::prelude::*;
 ///
 /// #[component]
-/// pub fn MyComponent(ctx: ScopeRef) -> View<G> {
+/// pub fn MyComponent<G: Html>(ctx: ScopeRef) -> View<G> {
 ///     let cool_button: G = node! { ctx, button { "The coolest 😎" } };
 ///
 ///     cool_button.set_property("myProperty", &"Epic!".into());
@@ -32,9 +32,9 @@ pub fn view(view: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 pub fn node(input: TokenStream) -> TokenStream {
-    let node = parse_macro_input!(input as view::WithCtxArg<view::ir::ViewNode>);
+    let elem = parse_macro_input!(input as view::WithCtxArg<view::ir::Element>);
 
-    view::node_impl(node).into()
+    view::node_impl(elem).into()
 }
 
 /// A macro for creating components from functions.
