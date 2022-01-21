@@ -357,6 +357,17 @@ impl<'a> Scope<'a> {
         // Cleanup signals and refs allocated on the arena.
         self.arena.dispose();
     }
+
+    /// Returns a [`RcSignal`] that is `true` when the scope is still valid and `false` once it is
+    /// disposed.
+    pub fn use_scope_status(&self) -> RcSignal<bool> {
+        let status = create_rc_signal(true);
+        self.on_cleanup({
+            let status = status.clone();
+            move || status.set(false)
+        });
+        status
+    }
 }
 
 impl Drop for Scope<'_> {

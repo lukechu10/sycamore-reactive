@@ -39,6 +39,7 @@ pub mod reactive {
 }
 pub mod component;
 pub mod flow;
+pub mod motion;
 pub mod noderef;
 pub mod utils;
 pub mod view;
