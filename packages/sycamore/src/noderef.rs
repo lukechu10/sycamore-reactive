@@ -16,6 +16,9 @@ pub struct NodeRef<G: GenericNode>(Rc<RefCell<Option<G>>>);
 
 impl<G: GenericNode + Any> NodeRef<G> {
     /// Creates an empty [`NodeRef`].
+    ///
+    /// Generally, it is preferable to use [`create_node_ref`](ScopeCreateNodeRef::create_node_ref)
+    /// instead.
     pub fn new() -> Self {
         Self(Rc::new(RefCell::new(None)))
     }
