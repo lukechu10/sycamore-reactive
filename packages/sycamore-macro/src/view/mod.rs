@@ -7,15 +7,15 @@ pub mod ir;
 pub mod parse;
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, format_ident};
 use syn::parse::{Parse, ParseStream};
-use syn::{Ident, Result, Token};
+use syn::{Expr, Result, Token};
 
 use self::codegen::Codegen;
 use self::ir::*;
 
 pub struct WithCtxArg<T> {
-    ctx: Ident,
+    ctx: Expr,
     rest: T,
 }
 
@@ -30,20 +30,20 @@ impl<T: Parse> Parse for WithCtxArg<T> {
 
 pub fn view_impl(view_root: WithCtxArg<ViewRoot>) -> TokenStream {
     let ctx = view_root.ctx;
-    let codegen_state = Codegen { ctx: ctx.clone() };
+    let codegen_state = Codegen { ctx: format_ident!("__ctx") };
     let quoted = codegen_state.view_root(&view_root.rest);
     quote! {{
-        let __ctx = &#ctx; // Make sure that ctx is used.
+        let __ctx: ::sycamore::reactive::ScopeRef = &#ctx; // Make sure that ctx is used.
         #quoted
     }}
 }
 
 pub fn node_impl(elem: WithCtxArg<Element>) -> TokenStream {
     let ctx = elem.ctx;
-    let codegen_state = Codegen { ctx: ctx.clone() };
+    let codegen_state = Codegen { ctx: format_ident!("__ctx") };
     let quoted = codegen_state.element(&elem.rest);
     quote! {{
-        let __ctx = &#ctx; // Make sure that ctx is used.
+        let __ctx: ::sycamore::reactive::ScopeRef = &#ctx; // Make sure that ctx is used.
         #quoted
     }}
 }

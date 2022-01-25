@@ -25,7 +25,7 @@ impl<'a> Scope<'a> {
     pub fn map_keyed<T, K, U>(
         &'a self,
         list: &'a ReadSignal<Vec<T>>,
-        map_fn: impl Fn(ScopeRef, &T) -> U + 'a,
+        map_fn: impl for<'child_lifetime> Fn(BoundedScopeRef<'child_lifetime, 'a>, &T) -> U + 'a,
         key_fn: impl Fn(&T) -> K + 'a,
     ) -> &'a ReadSignal<Vec<U>>
     where
@@ -59,7 +59,9 @@ impl<'a> Scope<'a> {
                         let tmp = Rc::clone(&tmp);
                         let map_fn = Rc::clone(&map_fn);
                         move |ctx| {
-                            *tmp.borrow_mut() = Some(map_fn(&ctx, &new_item));
+                            // SAFETY: f takes the same parameter as the argument to
+                            // self.create_child_scope(_).
+                            *tmp.borrow_mut() = Some(map_fn(unsafe { std::mem::transmute(ctx) }, &new_item));
                         }
                     });
                     mapped.push(tmp.borrow().clone().unwrap());
@@ -159,7 +161,9 @@ impl<'a> Scope<'a> {
                             let map_fn = Rc::clone(&map_fn);
                             let new_item = new_items[j].clone();
                             move |ctx| {
-                                *tmp.borrow_mut() = Some(map_fn(&ctx, &new_item));
+                                // SAFETY: f takes the same parameter as the argument to
+                                // self.create_child_scope(_).
+                                *tmp.borrow_mut() = Some(map_fn(unsafe { std::mem::transmute(ctx) }, &new_item));
                             }
                         });
 
@@ -207,7 +211,7 @@ impl<'a> Scope<'a> {
     pub fn map_indexed<T, U>(
         &'a self,
         list: &'a ReadSignal<Vec<T>>,
-        map_fn: impl Fn(ScopeRef, &T) -> U + 'a,
+        map_fn: impl for<'child_lifetime> Fn(BoundedScopeRef<'child_lifetime, 'a>, &T) -> U + 'a,
     ) -> &'a ReadSignal<Vec<U>>
     where
         T: PartialEq + Clone,
@@ -255,7 +259,10 @@ impl<'a> Scope<'a> {
                                 // self.create_child_scope.
                                 // ptr is still accessible after self.create_child_scope and
                                 // therefore lives long enough.
-                                (*ptr).write(map_fn(&ctx, &new_item));
+
+                                // SAFETY: f takes the same parameter as the argument to
+                                // self.create_child_scope(_).
+                                (*ptr).write(map_fn(std::mem::transmute(ctx), &new_item));
                             }
                         });
                         if item.is_none() {

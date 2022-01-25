@@ -404,7 +404,6 @@ pub fn List<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
                     iterable: filtered_todos,
                     view: |ctx, todo| {let todo = todo.clone(); view! { ctx,
                         Item(todo.clone())
-                        // li { (todo.get().title) }
                     }},
                     key: |todo| todo.get().id,
                 }
