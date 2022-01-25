@@ -285,7 +285,6 @@ impl<'a, T> AnyReadSignal<'a> for ReadSignal<T> {
 /// outer = Some(rc_state);
 /// });
 /// ```
-#[derive(Clone)]
 pub struct RcSignal<T>(Rc<Signal<T>>);
 
 impl<T> Deref for RcSignal<T> {
@@ -293,6 +292,12 @@ impl<T> Deref for RcSignal<T> {
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
+    }
+}
+
+impl<T> Clone for RcSignal<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
 

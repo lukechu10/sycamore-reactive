@@ -38,13 +38,9 @@ struct InvariantLifetime<'id>(PhantomData<&'id mut &'id ()>);
 ///
 /// # Lifetime
 ///
-/// [`Scope`] has two lifetimes.
-/// * `'id` - An unique "brand" lifetime that identifies the scope and all data allocated on it.
-///   This is to ensure that neither the scope, nor the data tied to the scope can escape the
-///   [`create_scope`] closure. This lifetime is invariant.
-/// * `'a` - The actual lifetime of the scope and all data allocated on it. This allows passing in
-///   data from an outer scope into an inner scope. This lifetime is also invariant because it is
-///   used within an cell.
+/// * `'a` - The lifetime of the scope and all data allocated on it. This allows passing in data
+///   from an outer scope into an inner scope. This lifetime is also invariant because it is used
+///   within an cell.
 pub struct Scope<'a> {
     /// Effect functions created on the [`Scope`].
     effects: RefCell<Vec<Rc<RefCell<Option<EffectState<'a>>>>>>,
