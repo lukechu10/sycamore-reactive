@@ -117,6 +117,8 @@ impl<'a, 'bound> Deref for BoundedScopeRef<'a, 'bound> {
 ///
 /// Returns a disposer function which will release the memory owned by the [`Scope`].
 /// Failure to call the disposer function will result in a memory leak.
+/// 
+/// The callback closure is called in an [untracked](untrack) scope.
 ///
 /// # Scope lifetime
 ///
@@ -152,8 +154,8 @@ pub fn create_scope(f: impl for<'a> FnOnce(ScopeRef<'a>)) -> impl FnOnce() {
     // The reference passed to f cannot possible escape the closure. We know however, that ptr
     // necessary outlives the closure call because it is only dropped in the returned disposer
     // closure.
-    f(unsafe { &*ptr });
-    //           ^^^ -> `ptr` is still accessible here after the call to f.
+    untrack(|| f(unsafe { &*ptr }));
+    //                      ^^^ -> `ptr` is still accessible here after the call to f.
 
     // Ownership of `ptr` is passed into the closure.
     move || unsafe {
@@ -298,8 +300,8 @@ impl<'a> Scope<'a> {
         // - self.child_ctx is append only. That means that the Box<Ctx> will not be dropped until
         //   Self is dropped.
         f(BoundedScopeRef::new(unsafe { &*ptr }));
-        //                                    ^^^ -> `ptr` is still accessible here after the call
-        // to f.
+        //                                    ^^^ -> `ptr` is still accessible here after
+        // the call to f.
         move || unsafe {
             let ctx = self.child_scopes.borrow_mut().remove(key).unwrap();
             // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer

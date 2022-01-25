@@ -310,7 +310,7 @@ impl Codegen {
 
                 if is_dynamic {
                     tokens.extend(quote! {
-                        ::sycamore::reactive::Scope::create_effect(#ctx,, {
+                        ::sycamore::reactive::Scope::create_effect(#ctx, {
                             let __el = ::std::clone::Clone::clone(&__el);
                             move || {
                                 #quoted_set_attribute
@@ -326,7 +326,7 @@ impl Codegen {
             AttributeType::DangerouslySetInnerHtml => {
                 if is_dynamic {
                     tokens.extend(quote! {
-                        ::sycamore::reactive::Scope::create_effect(#ctx,, {
+                        ::sycamore::reactive::Scope::create_effect(#ctx, {
                             let __el = ::std::clone::Clone::clone(&__el);
                             move || {
                                 ::sycamore::generic_node::GenericNode::dangerously_set_inner_html(
@@ -369,7 +369,7 @@ impl Codegen {
                         tokens.extend(
                             syn::Error::new(
                                 prop.span(),
-                                &format!("property `{}` is not supported with bind:", prop),
+                                &format!("property `{}` is not supported with `bind:`", prop),
                             )
                             .to_compile_error(),
                         );
@@ -377,19 +377,19 @@ impl Codegen {
                     }
                 };
 
-                let value_ty = match property_ty {
-                    JsPropertyType::Bool => quote! { ::std::primitive::bool },
-                    JsPropertyType::String => quote! { ::std::string::String },
-                };
+                // let value_ty = match property_ty {
+                //     JsPropertyType::Bool => quote! { ::std::primitive::bool },
+                //     JsPropertyType::String => quote! { ::std::string::String },
+                // };
 
                 let convert_into_jsvalue_fn = match property_ty {
                     JsPropertyType::Bool => {
-                        quote! { ::sycamore::rt::JsValue::from_bool(*signal.get()) }
+                        quote! { ::sycamore::rt::JsValue::from_bool(*#expr.get()) }
                     }
                     JsPropertyType::String => {
                         quote! {
                             ::sycamore::rt::JsValue::from_str(
-                                &::std::string::ToString::to_string(&signal.get())
+                                &::std::string::ToString::to_string(&#expr.get())
                             )
                         }
                     }
@@ -411,30 +411,22 @@ impl Codegen {
                     },
                 };
 
-                tokens.extend(quote! {{
-                    let signal: ::sycamore::reactive::Signal<#value_ty> = #expr;
-
+                tokens.extend(quote! {
                     #[cfg(target_arch = "wasm32")]
-                    ::sycamore::reactive::create_effect({
-                        let signal = ::std::clone::Clone::clone(&signal);
+                    ::sycamore::reactive::Scope::create_effect(#ctx, {
                         let __el = ::std::clone::Clone::clone(&__el);
-                        move || {
-                            ::sycamore::generic_node::GenericNode::set_property(
-                                &__el,
-                                #prop,
-                                &#convert_into_jsvalue_fn,
-                            );
-                        }
+                        move ||::sycamore::generic_node::GenericNode::set_property(
+                            &__el,
+                            #prop,
+                            &#convert_into_jsvalue_fn,
+                        )
                     });
-
-                    ::sycamore::generic_node::GenericNode::event(
-                        &__el,
-                        #event_name,
-                        ::std::boxed::Box::new(move |event: ::sycamore::rt::Event| {
-                            signal.set(#convert_from_jsvalue_fn);
+                    ::sycamore::generic_node::GenericNode::event(&__el, #ctx, #event_name,
+                        ::std::boxed::Box::new(|event: ::sycamore::rt::Event| {
+                            #expr.set(#convert_from_jsvalue_fn);
                         }),
-                    )
-                }});
+                    );
+                });
             }
             AttributeType::Ref => {
                 tokens.extend(quote! {{
@@ -459,15 +451,18 @@ impl Codegen {
             Component::ElementLike(comp) => {
                 let ElementLikeComponent { ident, props } = comp;
                 let mut props_quoted = quote! {
-                    ::sycamore::component::element_like_component_builder(&#ident)
+                    ::sycamore::component::element_like_component_builder(__component)
                 };
-                for (ident, expr) in props {
-                    props_quoted.extend(quote! { .#ident(#expr) });
+                for (field, expr) in props {
+                    props_quoted.extend(quote! { .#field(#expr) });
                 }
                 props_quoted.extend(quote! { .build() });
 
-                quote! { ::sycamore::component::component_scope(move || #ident(#ctx, #props_quoted)) }
-            },
+                quote! {{
+                    let __component = &#ident; // We do this to make sure the compiler can infer the value for `<G>`.
+                    ::sycamore::component::component_scope(move || __component(#ctx, #props_quoted))
+                }}
+            }
         }
     }
 }

@@ -25,7 +25,7 @@ impl<'a> Scope<'a> {
     /// returns `None`. For a panicking version, see [`use_context`](Self::use_context).
     pub fn try_use_context<T: 'static>(&'a self) -> Option<&'a T> {
         let type_id = TypeId::of::<T>();
-        let this = Some(self);
+        let mut this = Some(self);
         while let Some(current) = this {
             if let Some(value) = current.contexts.borrow_mut().get(&type_id) {
                 // SAFETY: value lives at least as long as 'a:
@@ -35,6 +35,9 @@ impl<'a> Scope<'a> {
                 let value = unsafe { &**value };
                 let value = value.downcast_ref::<T>().unwrap();
                 return Some(value);
+            } else {
+                // SAFETY: `current.parent` necessarily lives longer than `current`.
+                this = current.parent.map(|x| unsafe { &*x });
             }
         }
         None
@@ -49,6 +52,18 @@ impl<'a> Scope<'a> {
     pub fn use_context<T: 'static>(&'a self) -> &'a T {
         self.try_use_context().expect("context not found for type")
     }
+
+    /// Returns the current depth of the scope. If the scope is the root scope, returns `0`.
+    pub fn scope_depth(&self) -> u32 {
+        let mut depth = 0;
+        let mut this = Some(self);
+        while let Some(current) = this {
+            // SAFETY: `current.parent` necessarily lives longer than `current`.
+            this = current.parent.map(|x| unsafe { &*x });
+            depth += 1;
+        }
+        depth
+    }
 }
 
 #[cfg(test)]
@@ -61,6 +76,17 @@ mod tests {
             ctx.provide_context(42i32);
             let x = ctx.use_context::<i32>();
             assert_eq!(*x, 42);
+        });
+    }
+
+    #[test]
+    fn context_in_nested_scope() {
+        create_scope_immediate(|ctx| {
+            ctx.provide_context(42i32);
+            let _ = ctx.create_child_scope(|ctx| {
+                let x = ctx.use_context::<i32>();
+                assert_eq!(*x, 42);
+            });
         });
     }
 }

@@ -1,6 +1,7 @@
 //! Signals - The building blocks of reactivity.
 
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
+use std::hash::Hash;
 use std::ops::Deref;
 
 use crate::effect::EFFECTS;
@@ -317,6 +318,91 @@ impl<T: Display> Display for Signal<T> {
 impl<T: Display> Display for ReadSignal<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.get().fmt(f)
+    }
+}
+
+/* Debug implementations */
+
+impl<T: Debug> Debug for RcSignal<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RcSignal").field(&self.get()).finish()
+    }
+}
+impl<T: Debug> Debug for Signal<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Signal").field(&self.get()).finish()
+    }
+}
+impl<T: Debug> Debug for ReadSignal<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ReadSignal").field(&self.get()).finish()
+    }
+}
+
+/* Default implementations */
+
+impl<T: Default> Default for RcSignal<T> {
+    fn default() -> Self {
+        create_rc_signal(T::default())
+    }
+}
+
+/* PartialEq, Eq, Hash implementations */
+
+impl<T: PartialEq> PartialEq for RcSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_untracked().eq(&other.get_untracked())
+    }
+}
+impl<T: PartialEq> PartialEq for Signal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_untracked().eq(&other.get_untracked())
+    }
+}
+impl<T: PartialEq> PartialEq for ReadSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_untracked().eq(&other.get_untracked())
+    }
+}
+
+impl<T: Eq> Eq for RcSignal<T> {}
+impl<T: Eq> Eq for Signal<T> {}
+impl<T: Eq> Eq for ReadSignal<T> {}
+
+impl<T: Hash> Hash for RcSignal<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.get_untracked().hash(state)
+    }
+}
+impl<T: Hash> Hash for Signal<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.get_untracked().hash(state)
+    }
+}
+impl<T: Hash> Hash for ReadSignal<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.get_untracked().hash(state)
+    }
+}
+
+/* Serde implementations */
+
+#[cfg(feature = "serde")]
+impl<T: serde::Serialize> serde::Serialize for RcSignal<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.get().serialize(serializer)
+    }
+}
+#[cfg(feature = "serde")]
+impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for RcSignal<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(create_rc_signal(T::deserialize(deserializer)?))
     }
 }
 

@@ -81,11 +81,11 @@ impl<G: GenericNode> fmt::Debug for NodeRef<G> {
 
 /// Extension trait for [`Scope`] adding the `create_node_ref` method.
 pub trait ScopeCreateNodeRef<'a> {
+    /// Create a new [`NodeRef`] on the current [`Scope`].
     fn create_node_ref<G: GenericNode>(&'a self) -> &'a NodeRef<G>;
 }
 
 impl<'a> ScopeCreateNodeRef<'a> for Scope<'a> {
-    /// Create a new [`NodeRef`] on the current [`Scope`].
     fn create_node_ref<G: GenericNode>(&'a self) -> &'a NodeRef<G> {
         self.create_ref(NodeRef::new())
     }
