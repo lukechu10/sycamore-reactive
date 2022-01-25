@@ -58,6 +58,10 @@ wasm-bindgen-interning = ["wasm-bindgen/enable-interning"]
 harness = false
 name = "reactivity"
 
+[[test]]
+name = "ssr"
+required-features = ["ssr"]
+
 [package.metadata.docs.rs]
 all-features = true
 default-target = "wasm32-unknown-unknown"
