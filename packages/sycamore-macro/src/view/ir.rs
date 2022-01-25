@@ -126,7 +126,7 @@ pub fn is_bool_attr(name: &str) -> bool {
 
 pub enum Component {
     FnLike(FnLikeComponent),
-    ElementLike(ElementLikeComponent)
+    ElementLike(ElementLikeComponent),
 }
 
 pub struct FnLikeComponent {

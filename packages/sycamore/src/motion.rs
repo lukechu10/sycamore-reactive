@@ -28,8 +28,8 @@
 //         if cfg!(target_arch = "wasm32") {
 //             // Only run on wasm32 architecture.
 //             let boxed: Box<dyn FnMut() + 'a> = Box::new(f);
-//             // SAFETY: We are only transmuting the lifetime from 'a to 'static which is safe because
-//             // the closure will not be accessed once the enclosing Scope is disposed.
+//             // SAFETY: We are only transmuting the lifetime from 'a to 'static which is safe
+// because             // the closure will not be accessed once the enclosing Scope is disposed.
 //             let extended: Box<dyn FnMut() + 'static> = unsafe { std::mem::transmute(boxed) };
 //             let extended = RefCell::new(extended);
 //             let scope_status = self.use_scope_status();

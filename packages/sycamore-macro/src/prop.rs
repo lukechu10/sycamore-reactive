@@ -48,16 +48,10 @@ pub fn impl_derive_prop(ast: &DeriveInput) -> Result<TokenStream> {
             }
         },
         syn::Data::Enum(_) => {
-            return Err(Error::new(
-                ast.span(),
-                "Prop is not supported for enums",
-            ))
+            return Err(Error::new(ast.span(), "Prop is not supported for enums"))
         }
         syn::Data::Union(_) => {
-            return Err(Error::new(
-                ast.span(),
-                "Prop is not supported for unions",
-            ))
+            return Err(Error::new(ast.span(), "Prop is not supported for unions"))
         }
     };
     Ok(data)

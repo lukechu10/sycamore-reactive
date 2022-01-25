@@ -416,9 +416,7 @@ pub fn List<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
 pub fn TodoFilter<G: Html>(ctx: ScopeRef, filter: Filter) -> View<G> {
     let app_state = ctx.use_context::<AppState>();
     let selected = move || filter == *app_state.filter.get();
-    let set_filter = |filter| {
-        app_state.filter.set(filter)
-    };
+    let set_filter = |filter| app_state.filter.set(filter);
 
     view! { ctx,
         li {
@@ -433,25 +431,19 @@ pub fn TodoFilter<G: Html>(ctx: ScopeRef, filter: Filter) -> View<G> {
     }
 }
 
-
 #[component]
 pub fn Footer<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
     let app_state = ctx.use_context::<AppState>();
 
-    let items_text = || {
-        match app_state.todos_left() {
-            1 => "item",
-            _ => "items"
-        }
+    let items_text = || match app_state.todos_left() {
+        1 => "item",
+        _ => "items",
     };
 
-    let has_completed_todos = ctx.create_selector(|| {
-        app_state.todos_left() < app_state.todos.get().len()
-    });
+    let has_completed_todos =
+        ctx.create_selector(|| app_state.todos_left() < app_state.todos.get().len());
 
-    let handle_clear_completed = |_| {
-        app_state.clear_completed()
-    };
+    let handle_clear_completed = |_| app_state.clear_completed();
 
     view! { ctx,
         footer(class="footer") {

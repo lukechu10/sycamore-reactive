@@ -39,6 +39,8 @@ pub mod reactive {
 }
 pub mod component;
 pub mod flow;
+#[cfg(feature = "futures")]
+pub mod futures;
 pub mod motion;
 pub mod noderef;
 pub mod utils;

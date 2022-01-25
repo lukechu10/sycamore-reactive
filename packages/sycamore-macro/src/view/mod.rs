@@ -7,7 +7,7 @@ pub mod ir;
 pub mod parse;
 
 use proc_macro2::TokenStream;
-use quote::{quote, format_ident};
+use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::{Expr, Result, Token};
 
@@ -30,7 +30,9 @@ impl<T: Parse> Parse for WithCtxArg<T> {
 
 pub fn view_impl(view_root: WithCtxArg<ViewRoot>) -> TokenStream {
     let ctx = view_root.ctx;
-    let codegen_state = Codegen { ctx: format_ident!("__ctx") };
+    let codegen_state = Codegen {
+        ctx: format_ident!("__ctx"),
+    };
     let quoted = codegen_state.view_root(&view_root.rest);
     quote! {{
         let __ctx: ::sycamore::reactive::ScopeRef = &#ctx; // Make sure that ctx is used.
@@ -40,7 +42,9 @@ pub fn view_impl(view_root: WithCtxArg<ViewRoot>) -> TokenStream {
 
 pub fn node_impl(elem: WithCtxArg<Element>) -> TokenStream {
     let ctx = elem.ctx;
-    let codegen_state = Codegen { ctx: format_ident!("__ctx") };
+    let codegen_state = Codegen {
+        ctx: format_ident!("__ctx"),
+    };
     let quoted = codegen_state.element(&elem.rest);
     quote! {{
         let __ctx: ::sycamore::reactive::ScopeRef = &#ctx; // Make sure that ctx is used.
