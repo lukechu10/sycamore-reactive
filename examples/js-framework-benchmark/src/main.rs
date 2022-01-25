@@ -104,7 +104,7 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
     // TODO: use ctx.create_signal
     let selected = ctx.create_ref(create_rc_signal(None::<usize>));
 
-    let remove = |id| {
+    let _remove = |id| {
         data.set(
             data.get()
                 .iter()
