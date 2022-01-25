@@ -3,14 +3,14 @@
 //     feature = "experimental-builder-html"
 // ))]
 // pub mod builder_hydrate;
-// pub mod cleanup;
+pub mod cleanup;
 // #[cfg(feature = "experimental-hydrate")]
 // pub mod hydrate;
 // pub mod keyed;
 // pub mod non_keyed;
 // pub mod portal;
-// pub mod reconcile;
-// pub mod render;
+pub mod reconcile;
+pub mod render;
 
 use sycamore::prelude::*;
 use wasm_bindgen_test::*;
