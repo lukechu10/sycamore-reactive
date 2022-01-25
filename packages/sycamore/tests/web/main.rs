@@ -4,8 +4,8 @@
 // ))]
 // pub mod builder_hydrate;
 pub mod cleanup;
-// #[cfg(feature = "experimental-hydrate")]
-// pub mod hydrate;
+#[cfg(feature = "experimental-hydrate")]
+pub mod hydrate;
 // pub mod keyed;
 // pub mod non_keyed;
 // pub mod portal;
