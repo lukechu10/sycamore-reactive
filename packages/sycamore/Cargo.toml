@@ -15,6 +15,7 @@ sycamore-macro = { path = "../sycamore-macro" }
 sycamore-reactive = { path = "../sycamore-reactive" }
 wasm-bindgen = "0.2.79"
 wasm-bindgen-futures = { version = "0.4.29", optional = true }
+paste = "1.0.6"
 
 [dependencies.lexical]
 version = "6.0.1"

@@ -33,18 +33,21 @@
 #[allow(unused_extern_crates)] // False positive
 extern crate self as sycamore;
 
-pub mod generic_node;
-pub mod reactive {
-    pub use sycamore_reactive::*;
-}
+#[cfg(feature = "experimental-builder-agnostic")]
+pub mod builder;
 pub mod component;
 pub mod flow;
 #[cfg(feature = "futures")]
 pub mod futures;
+pub mod generic_node;
 pub mod motion;
 pub mod noderef;
 pub mod utils;
 pub mod view;
+
+pub mod reactive {
+    pub use sycamore_reactive::*;
+}
 
 #[cfg(feature = "ssr")]
 pub use crate::generic_node::render_to_string;
