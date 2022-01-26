@@ -19,7 +19,7 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
 fn main() {
     sycamore::render(|ctx| {
         view! { ctx,
-            App()
+            App {}
         }
     });
 }

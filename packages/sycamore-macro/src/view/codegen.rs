@@ -151,7 +151,7 @@ impl Codegen {
                                 #marker
                                 ::sycamore::utils::render::insert(#ctx, &__el, #comp, #initial, __marker, #multi);
                             };
-                            codegen_ssr_markers.then(|| quote!{
+                            codegen_ssr_markers.then(|| quote! {
                                 if ::std::any::Any::type_id(&__el) == ::std::any::TypeId::of::<::sycamore::generic_node::SsrNode>() {
                                     #ssr_markers
                                     ::sycamore::utils::render::insert(#ctx, &__el, #comp, #initial, Some(&__end_marker), #multi);
