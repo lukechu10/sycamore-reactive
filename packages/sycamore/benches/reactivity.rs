@@ -33,7 +33,7 @@ pub fn bench(c: &mut Criterion) {
         b.iter(|| {
             create_scope_immediate(|ctx| {
                 let v = ctx.create_signal((0..100).collect());
-                let mapped = ctx.map_indexed(v, |_, x| *x * 2);
+                let mapped = ctx.map_indexed(v, |_, x| x * 2);
                 mapped.track();
 
                 v.set((100..200).collect());
@@ -46,7 +46,7 @@ pub fn bench(c: &mut Criterion) {
         b.iter(|| {
             create_scope_immediate(|ctx| {
                 let v = ctx.create_signal((0..100).collect());
-                let mapped = ctx.map_keyed(v, |_, x| *x * 2, |x| *x);
+                let mapped = ctx.map_keyed(v, |_, x| x * 2, |x| *x);
                 mapped.track();
 
                 v.set((100..200).collect());

@@ -170,7 +170,6 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
                     Keyed {
                         iterable: data,
                         view: move |ctx, row| {
-                            let row = row.clone();
                             let row_id = row.id;
                             let is_selected = ctx.create_selector(move || *selected.get() == Some(row_id));
                             let handle_click = move |_| selected.set(Some(row_id));

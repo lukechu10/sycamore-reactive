@@ -81,7 +81,7 @@ fn indexed() {
             ul {
                 Indexed {
                     iterable: count,
-                    view: |ctx, &item| view! { ctx,
+                    view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
                 }

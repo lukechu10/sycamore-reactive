@@ -25,7 +25,7 @@ impl<'a> Scope<'a> {
     pub fn map_keyed<T, K, U>(
         &'a self,
         list: &'a ReadSignal<Vec<T>>,
-        map_fn: impl for<'child_lifetime> Fn(BoundedScopeRef<'child_lifetime, 'a>, &T) -> U + 'a,
+        map_fn: impl for<'child_lifetime> Fn(BoundedScopeRef<'child_lifetime, 'a>, T) -> U + 'a,
         key_fn: impl Fn(&T) -> K + 'a,
     ) -> &'a ReadSignal<Vec<U>>
     where
@@ -61,7 +61,7 @@ impl<'a> Scope<'a> {
                         move |ctx| {
                             // SAFETY: f takes the same parameter as the argument to
                             // self.create_child_scope(_).
-                            *tmp.borrow_mut() = Some(map_fn(unsafe { std::mem::transmute(ctx) }, &new_item));
+                            *tmp.borrow_mut() = Some(map_fn(unsafe { std::mem::transmute(ctx) }, new_item));
                         }
                     });
                     mapped.push(tmp.borrow().clone().unwrap());
@@ -163,7 +163,7 @@ impl<'a> Scope<'a> {
                             move |ctx| {
                                 // SAFETY: f takes the same parameter as the argument to
                                 // self.create_child_scope(_).
-                                *tmp.borrow_mut() = Some(map_fn(unsafe { std::mem::transmute(ctx) }, &new_item));
+                                *tmp.borrow_mut() = Some(map_fn(unsafe { std::mem::transmute(ctx) }, new_item));
                             }
                         });
 
@@ -211,7 +211,7 @@ impl<'a> Scope<'a> {
     pub fn map_indexed<T, U>(
         &'a self,
         list: &'a ReadSignal<Vec<T>>,
-        map_fn: impl for<'child_lifetime> Fn(BoundedScopeRef<'child_lifetime, 'a>, &T) -> U + 'a,
+        map_fn: impl for<'child_lifetime> Fn(BoundedScopeRef<'child_lifetime, 'a>, T) -> U + 'a,
     ) -> &'a ReadSignal<Vec<U>>
     where
         T: PartialEq + Clone,
@@ -262,7 +262,7 @@ impl<'a> Scope<'a> {
 
                                 // SAFETY: f takes the same parameter as the argument to
                                 // self.create_child_scope(_).
-                                (*ptr).write(map_fn(std::mem::transmute(ctx), &new_item));
+                                (*ptr).write(map_fn(std::mem::transmute(ctx), new_item));
                             }
                         });
                         if item.is_none() {
@@ -312,7 +312,7 @@ mod tests {
     fn keyed() {
         create_scope_immediate(|ctx| {
             let a = ctx.create_signal(vec![1, 2, 3]);
-            let mapped = ctx.map_keyed(a, |_, x| *x * 2, |x| *x);
+            let mapped = ctx.map_keyed(a, |_, x| x * 2, |x| *x);
             assert_eq!(*mapped.get(), vec![2, 4, 6]);
 
             a.set(vec![1, 2, 3, 4]);
@@ -327,7 +327,7 @@ mod tests {
     fn keyed_recompute_everything() {
         create_scope_immediate(|ctx| {
             let a = ctx.create_signal(vec![1, 2, 3]);
-            let mapped = ctx.map_keyed(a, |_, x| *x * 2, |x| *x);
+            let mapped = ctx.map_keyed(a, |_, x| x * 2, |x| *x);
             assert_eq!(*mapped.get(), vec![2, 4, 6]);
 
             a.set(vec![4, 5, 6]);
@@ -340,7 +340,7 @@ mod tests {
     fn keyed_clear() {
         create_scope_immediate(|ctx| {
             let a = ctx.create_signal(vec![1, 2, 3]);
-            let mapped = ctx.map_keyed(a, |_, x| *x * 2, |x| *x);
+            let mapped = ctx.map_keyed(a, |_, x| x * 2, |x| *x);
 
             a.set(Vec::new());
             assert_eq!(*mapped.get(), Vec::<i32>::new());
@@ -381,7 +381,7 @@ mod tests {
     fn indexed() {
         create_scope_immediate(|ctx| {
             let a = ctx.create_signal(vec![1, 2, 3]);
-            let mapped = ctx.map_indexed(a, |_, x| *x * 2);
+            let mapped = ctx.map_indexed(a, |_, x| x * 2);
             assert_eq!(*mapped.get(), vec![2, 4, 6]);
 
             a.set(vec![1, 2, 3, 4]);
@@ -397,7 +397,7 @@ mod tests {
     fn indexed_clear() {
         create_scope_immediate(|ctx| {
             let a = ctx.create_signal(vec![1, 2, 3]);
-            let mapped = ctx.map_indexed(a, |_, x| *x * 2);
+            let mapped = ctx.map_indexed(a, |_, x| x * 2);
 
             a.set(Vec::new());
             assert_eq!(*mapped.get(), Vec::<i32>::new());
@@ -409,7 +409,7 @@ mod tests {
     fn indexed_react() {
         create_scope_immediate(|ctx| {
             let a = ctx.create_signal(vec![1, 2, 3]);
-            let mapped = ctx.map_indexed(a, |_, x| *x * 2);
+            let mapped = ctx.map_indexed(a, |_, x| x * 2);
 
             let counter = ctx.create_signal(0);
             ctx.create_effect(|| {

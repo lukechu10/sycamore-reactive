@@ -9,12 +9,11 @@ fn append() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -44,12 +43,11 @@ fn swap_rows() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -82,12 +80,11 @@ fn update_row() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -109,12 +106,11 @@ fn trigger_with_same_data() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -136,12 +132,11 @@ fn delete_row() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -167,12 +162,11 @@ fn delete_row_from_start() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -194,12 +188,11 @@ fn delete_row_from_end() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -221,12 +214,11 @@ fn clear() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -248,12 +240,11 @@ fn insert_front() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -284,12 +275,11 @@ fn nested_reactivity() {
 
         let node = view! { ctx,
             ul {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         li { (item.get()) }
                     },
-                    key: |item| *item.get(),
                 }
             }
         };
@@ -318,13 +308,12 @@ fn fragment_template() {
 
         let node = view! { ctx,
             div {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         span { "The value is: " }
                         strong { (item) }
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -369,12 +358,11 @@ fn template_top_level() {
         let count = ctx.create_signal(vec![1, 2]);
 
         let node = view! { ctx,
-            Keyed {
+            Indexed {
                 iterable: count,
                 view: |ctx, item| view! { ctx,
                     li { (item) }
                 },
-                key: |item| *item,
             }
         };
 
@@ -406,12 +394,11 @@ fn template_dyn_top_level() {
 
         let node = view! { ctx,
             div {
-                Keyed {
+                Indexed {
                     iterable: count,
                     view: |ctx, item| view! { ctx,
                         (item)
                     },
-                    key: |item| *item,
                 }
             }
         };
@@ -446,19 +433,17 @@ fn template_with_other_nodes_at_same_level() {
         let node = view! { ctx,
             ul {
                 li { "before" }
-                Keyed {
+                Indexed {
                     iterable: vec1,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |x| *x
                 }
-                Keyed {
+                Indexed {
                     iterable: vec2,
                     view: |ctx, item| view! { ctx,
                         li { (item) }
                     },
-                    key: |x| *x
                 }
                 li { "after" }
             }

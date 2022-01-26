@@ -6,8 +6,8 @@
 pub mod cleanup;
 #[cfg(feature = "experimental-hydrate")]
 pub mod hydrate;
-// pub mod keyed;
-// pub mod non_keyed;
+pub mod indexed;
+pub mod keyed;
 // pub mod portal;
 pub mod reconcile;
 pub mod render;

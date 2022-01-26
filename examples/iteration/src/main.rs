@@ -28,7 +28,7 @@ fn App<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
         ul {
             Indexed {
                 iterable: items,
-                view: |ctx, &Cat { id, name }| view! { ctx,
+                view: |ctx, Cat { id, name }| view! { ctx,
                     li {
                         a(href=format!("https://www.youtube.com/watch?v={id}")) {
                             (name)
