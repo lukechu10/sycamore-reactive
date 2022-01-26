@@ -402,9 +402,9 @@ pub fn List<G: Html>(ctx: ScopeRef, _: ()) -> View<G> {
             ul(class="todo-list") {
                 Keyed {
                     iterable: filtered_todos,
-                    view: |ctx, todo| {let todo = todo.clone(); view! { ctx,
-                        Item(todo.clone())
-                    }},
+                    view: |ctx, todo| view! { ctx,
+                        Item(todo)
+                    },
                     key: |todo| todo.get().id,
                 }
             }
