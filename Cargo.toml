@@ -9,6 +9,7 @@ members = [
     "examples/components",
     "examples/context",
     "examples/counter",
+    "examples/http-request",
     "examples/iteration",
     "examples/js-framework-benchmark",
     "examples/hello-world",
